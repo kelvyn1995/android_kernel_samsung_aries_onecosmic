@@ -9,7 +9,7 @@
 TYPE=$1
 [[ "$TYPE" == '' ]] && TYPE=SGS
 
-REL=CM7_${TYPE}_kernel_kang_$(date +%Y%m%d_%H)_update.zip
+REL=CM7_${TYPE}_platypus-kernel_$(date +%Y%m%d_%H)_update.zip
 
 cp ./arch/arm/boot/zImage release/ || exit 1
 find . -name "*.ko" -exec cp {} release/system/modules/ \; 2>/dev/null || exit 1
