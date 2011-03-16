@@ -182,7 +182,7 @@ struct cfq_group {
 	int nr_cfqq;
 
 	/* Per group busy queus average. Useful for workload slice calc. */
-	unsigned int busy_queues_avg[2];
+	unsigned int busy_queues_avg[3];
 	/*
 	 * rr lists of queues with requests, onle rr for each priority class.
 	 * Counts are embedded in the cfq_rb_root
