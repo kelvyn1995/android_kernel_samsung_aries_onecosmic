@@ -747,10 +747,11 @@ struct ext4_inode_info {
 	 * near to their parent directory's inode.
 	 */
 	ext4_group_t	i_block_group;
-	unsigned long	i_state_flags;		/* Dynamic state flags */
-	unsigned long	i_flags;
 
 	ext4_lblk_t		i_dir_start_lookup;
+
+	unsigned long	i_state_flags;		/* Dynamic state flags */
+	unsigned long	i_flags;
 #ifdef CONFIG_EXT4_FS_XATTR
 	/*
 	 * Extended attributes can be read independently of the main file
@@ -813,12 +814,13 @@ struct ext4_inode_info {
 	unsigned int i_reserved_data_blocks;
 	unsigned int i_reserved_meta_blocks;
 	unsigned int i_allocated_meta_blocks;
-	unsigned short i_delalloc_reserved_flag;
-	sector_t i_da_metadata_calc_last_lblock;
-	int i_da_metadata_calc_len;
+	bool i_delalloc_reserved_flag;
 
 	/* on-disk additional length */
 	__u16 i_extra_isize;
+
+	sector_t i_da_metadata_calc_last_lblock;
+	int i_da_metadata_calc_len;
 
 	spinlock_t i_block_reservation_lock;
 #ifdef CONFIG_QUOTA
