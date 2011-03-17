@@ -29,6 +29,10 @@ unsigned short tune_fll_value(unsigned short val);
 #define NEXUS_S
 #endif
 
+#ifdef CONFIG_MACH_ARIES
+#define NEXUS_S
+#endif
+
 #ifdef CONFIG_FB_S3C_AMS701KA
 #define GALAXY_TAB
 #endif
