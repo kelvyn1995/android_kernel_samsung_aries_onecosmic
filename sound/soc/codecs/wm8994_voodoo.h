@@ -25,6 +25,8 @@ void update_dac_direct(bool with_mute);
 void update_enable(void);
 unsigned short tune_fll_value(unsigned short val);
 
+#define NEXUS_S
+
 #ifdef CONFIG_MACH_HERRING
 #define NEXUS_S
 #endif
