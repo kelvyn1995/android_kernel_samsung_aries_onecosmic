@@ -301,9 +301,9 @@ static inline s64 entity_key(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	return se->vruntime - cfs_rq->min_vruntime;
 }
 
-static void update_min_vruntime(struct cfs_rq *cfs_rq)
+static void update_min_vruntime(struct cfs_rq *cfs_rq, unsigned long delta_exec)
 {
-	u64 vruntime = cfs_rq->min_vruntime;
+	u64 vruntime = cfs_rq->min_vruntime, new_vruntime;
 
 	if (cfs_rq->curr)
 		vruntime = cfs_rq->curr->vruntime;
@@ -319,7 +319,12 @@ static void update_min_vruntime(struct cfs_rq *cfs_rq)
 			vruntime = min_vruntime(vruntime, se->vruntime);
 	}
 
-	cfs_rq->min_vruntime = max_vruntime(cfs_rq->min_vruntime, vruntime);
+	new_vruntime = cfs_rq->min_vruntime;
+	if (sched_feat(DYN_MIN_VRUNTIME) && delta_exec)
+		new_vruntime += calc_delta_mine(delta_exec, NICE_0_LOAD,
+						&cfs_rq->load);
+
+	cfs_rq->min_vruntime = max_vruntime(new_vruntime, vruntime);
 }
 
 /*
@@ -513,7 +518,7 @@ __update_curr(struct cfs_rq *cfs_rq, struct sched_entity *curr,
 	delta_exec_weighted = calc_delta_fair(delta_exec, curr);
 
 	curr->vruntime += delta_exec_weighted;
-	update_min_vruntime(cfs_rq);
+	update_min_vruntime(cfs_rq, delta_exec);
 }
 
 static void update_curr(struct cfs_rq *cfs_rq)
@@ -688,7 +693,7 @@ static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		se->statistics.sum_sleep_runtime += delta;
 
 		if (tsk) {
-			if (tsk->in_iowait) {
+			if (tsk->sched_in_iowait) {
 				se->statistics.iowait_sum += delta;
 				se->statistics.iowait_count++;
 				trace_sched_stat_iowait(tsk, delta);
@@ -718,7 +723,7 @@ static void check_spread(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	if (d < 0)
 		d = -d;
 
-	if (d > 3*sysctl_sched_latency)
+	if (d > 3*cfs_rq->nr_running*sysctl_sched_latency)
 		schedstat_inc(cfs_rq, nr_spread_over);
 #endif
 }
@@ -727,6 +732,14 @@ static void
 place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 {
 	u64 vruntime = cfs_rq->min_vruntime;
+
+	/*
+	 * Expedite forks when requested rather than putting forked thread in a
+	 * delayed slot.
+	 */
+	if ((sched_feat(INTERACTIVE_FORK_EXPEDITED)
+	    || sched_feat(TIMER_FORK_EXPEDITED)) && se->fork_expedited)
+		initial = 0;
 
 	/*
 	 * The 'current' period is already promised to the current tasks,
@@ -738,7 +751,10 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 		vruntime += sched_vslice(cfs_rq, se);
 
 	/* sleeps up to a single latency don't count. */
-	if (!initial) {
+	if (!initial
+	    && (sched_feat(FAIR_SLEEPERS)
+	       || (sched_feat(FAIR_SLEEPERS_TIMER) && se->timer)
+	       || (sched_feat(FAIR_SLEEPERS_INTERACTIVE) && se->interactive))) {
 		unsigned long thresh = sysctl_sched_latency;
 
 		/*
@@ -752,9 +768,7 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 	}
 
 	/* ensure we never gain time by being placed backwards. */
-	vruntime = max_vruntime(se->vruntime, vruntime);
-
-	se->vruntime = vruntime;
+	se->vruntime = max_vruntime(se->vruntime, vruntime);
 }
 
 static void
@@ -774,6 +788,12 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	account_entity_enqueue(cfs_rq, se);
 
 	if (flags & ENQUEUE_WAKEUP) {
+		if (sched_feat(INTERACTIVE)
+		    && flags & ENQUEUE_LATENCY && !(flags & ENQUEUE_IO))
+			se->interactive = 1;
+		if (sched_feat(TIMER)
+		    && flags & ENQUEUE_TIMER && !(flags & ENQUEUE_IO))
+			se->timer = 1;
 		place_entity(cfs_rq, se, 0);
 		enqueue_sleeper(cfs_rq, se);
 	}
@@ -808,6 +828,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	 * Update run-time statistics of the 'current'.
 	 */
 	update_curr(cfs_rq);
+	check_spread(cfs_rq, se);
 
 	update_stats_dequeue(cfs_rq, se);
 	if (flags & DEQUEUE_SLEEP) {
@@ -830,7 +851,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	account_entity_dequeue(cfs_rq, se);
 
 	min_vruntime = cfs_rq->min_vruntime;
-	update_min_vruntime(cfs_rq);
+	update_min_vruntime(cfs_rq, 0);
 
 	/*
 	 * Normalize the entity after updating the min_vruntime because the
@@ -919,14 +940,15 @@ static struct sched_entity *pick_next_entity(struct cfs_rq *cfs_rq)
 	struct sched_entity *se = __pick_next_entity(cfs_rq);
 	struct sched_entity *left = se;
 
-	if (cfs_rq->next && wakeup_preempt_entity(cfs_rq->next, left) < 1)
-		se = cfs_rq->next;
-
-	/*
-	 * Prefer last buddy, try to return the CPU to a preempted task.
-	 */
 	if (cfs_rq->last && wakeup_preempt_entity(cfs_rq->last, left) < 1)
 		se = cfs_rq->last;
+
+	/*
+	 * Prefer the next buddy, only set through the interactivity and timer
+	 * logic.
+	 */
+	if (cfs_rq->next && wakeup_preempt_entity(cfs_rq->next, left) < 1)
+		se = cfs_rq->next;
 
 	clear_buddies(cfs_rq, se);
 
@@ -939,11 +961,9 @@ static void put_prev_entity(struct cfs_rq *cfs_rq, struct sched_entity *prev)
 	 * If still on the runqueue then deactivate_task()
 	 * was not called and update_curr() has to be done:
 	 */
-	if (prev->on_rq)
-		update_curr(cfs_rq);
-
-	check_spread(cfs_rq, prev);
 	if (prev->on_rq) {
+		update_curr(cfs_rq);
+		check_spread(cfs_rq, prev);
 		update_stats_wait_start(cfs_rq, prev);
 		/* Put 'current' back into the tree. */
 		__enqueue_entity(cfs_rq, prev);
@@ -1050,6 +1070,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
+
+	if (p->sched_in_iowait)
+		flags |= ENQUEUE_IO;
 
 	for_each_sched_entity(se) {
 		if (se->on_rq)
@@ -1657,13 +1680,24 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p, int wake_
 	struct task_struct *curr = rq->curr;
 	struct sched_entity *se = &curr->se, *pse = &p->se;
 	struct cfs_rq *cfs_rq = task_cfs_rq(curr);
-	int scale = cfs_rq->nr_running >= sched_nr_latency;
+	/*
+	 * The buddy logic doesn't work well when there's not actually enough
+	 * tasks for there to be buddies.
+	 */
+	int buddies = (cfs_rq->nr_running >= 2);
+	int preempt = 0;
 
 	if (unlikely(se == pse))
 		return;
 
-	if (sched_feat(NEXT_BUDDY) && scale && !(wake_flags & WF_FORK))
+	if (!(wake_flags & WF_FORK)
+	    && ((sched_feat(INTERACTIVE) && pse->interactive)
+		|| (sched_feat(TIMER) && pse->timer))) {
+		clear_buddies(cfs_rq, NULL);
 		set_next_buddy(pse);
+		preempt = 1;
+		buddies = 0;
+	}
 
 	/*
 	 * We can come here with TIF_NEED_RESCHED already set from new task
@@ -1689,7 +1723,7 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p, int wake_
 	update_curr(cfs_rq);
 	find_matching_se(&se, &pse);
 	BUG_ON(!pse);
-	if (wakeup_preempt_entity(se, pse) == 1)
+	if (preempt || wakeup_preempt_entity(se, pse) == 1)
 		goto preempt;
 
 	return;
@@ -1708,7 +1742,7 @@ preempt:
 	if (unlikely(!se->on_rq || curr == rq->idle))
 		return;
 
-	if (sched_feat(LAST_BUDDY) && scale && entity_is_task(se))
+	if (sched_feat(LAST_BUDDY) && buddies && entity_is_task(se))
 		set_last_buddy(se);
 }
 
