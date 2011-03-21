@@ -23,6 +23,12 @@ choice
 	  with lots of processors that may show reduced performance if
 	  too many timer interrupts are occurring.
 
+	config HZ_128
+		bool "128 HZ"
+	help
+	 128 Hz - doing an experiment inspired by ARM OMAP4 development
+	 and cutting of battery consumption
+
 	config HZ_250
 		bool "250 HZ"
 	help
@@ -50,6 +56,7 @@ endchoice
 config HZ
 	int
 	default 100 if HZ_100
+	default 128 if HZ_128
 	default 250 if HZ_250
 	default 300 if HZ_300
 	default 1000 if HZ_1000
