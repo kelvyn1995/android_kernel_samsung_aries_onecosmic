@@ -44,4 +44,12 @@ config SAMPLE_HW_BREAKPOINT
 	help
 	  This builds kernel hardware breakpoint example modules.
 
+config SAMPLE_TEST_STACKPROTECTOR
+	tristate "Build test module for the stack protector -- loadable modules only"
+	depends on CC_STACKPROTECTOR && m
+	help
+	  This build a test module which upon insertion will exercize
+	  the -fstack-protector buffer overflow detection feature.
+	  Beware that this test is destructive as it will panic the kernel. 
+
 endif # SAMPLES
