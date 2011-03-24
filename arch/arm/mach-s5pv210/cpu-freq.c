@@ -68,14 +68,14 @@ static struct cpufreq_frequency_table freq_table[] = {
 extern int exp_UV_mV[8]; //Needed for uv
 unsigned int freq_uv_table[8][3] = {
 	//freq, stock, current
-	{1300,	1325,	1325},
-	{1200,	1300,	1300},
-	{1000,	1250,	1250},
-	{800,	1200,	1200},
-	{600,	1200,	1200},
-	{400,	1050,	1050},
-	{200,	950,	950},
-	{100,	950,	950},
+	{1300000,	1350,	1350},
+	{1200000,	1300,	1300},
+	{1000000,	1250,	1250},
+	{800000,	1200,	1200},
+	{600000,	1150,	1150},
+	{400000,	1050,	1050},
+	{200000,	950,	950},
+	{100000,	950,	950},
 };
 //extern int enabled_freqs[8];
 //extern int update_states = 0;
@@ -90,34 +90,42 @@ const unsigned long int_volt_max = 1250000;
 
 // added more voltage levels for the added frequencies
 static struct s5pv210_dvs_conf dvs_conf[] = {
+	//1300
 	[L0] = {
-		.arm_volt   = 1325000,
-		.int_volt   = 1100000,
+		.arm_volt   = 1350000,
+		.int_volt   = 1150000,
 	},
+	//1200
 	[L1] = {
 		.arm_volt   = 1300000,
-		.int_volt   = 1100000,
+		.int_volt   = 1150000,
 	},
+	//1000
 	[L2] = {
 		.arm_volt   = 1250000,
-		.int_volt   = 1100000,
+		.int_volt   = 1150000,
 	},
+	//800
 	[L3] = {
 		.arm_volt   = 1200000,
-		.int_volt   = 1100000,
+		.int_volt   = 1150000,
 	},
+	//600
 	[L4] = {
-		.arm_volt   = 1200000,
-		.int_volt   = 1100000,
+		.arm_volt   = 1150000,
+		.int_volt   = 1150000,
 	},
+	//400
 	[L5] = {
 		.arm_volt   = 1050000,
-		.int_volt   = 1100000,
+		.int_volt   = 1150000,
 	},
+	//200
 	[L6] = {
 		.arm_volt   = 950000,
-		.int_volt   = 1100000,
+		.int_volt   = 1150000,
 	},
+	//100
 	[L7] = {
 		.arm_volt   = 950000,
 		.int_volt   = 1000000,
@@ -194,7 +202,7 @@ static struct s3c_freq clk_info[] = {
 		.hclk_dsys  = 166750,
 		.pclk_dsys  = 83375,
 	},
-	[L4] = {
+	[L4] = {	/* 600MHz */
 		.fclk       = 800000,
 		.armclk     = 600000,
 		.hclk_tns   = 0,
@@ -466,7 +474,7 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 //Subtract the voltage in the undervolt table before supplying it to the cpu
 //Got to multiply by 1000 to account for the conversion between SGS and NS
 	arm_volt = (dvs_conf[index].arm_volt - (exp_UV_mV[index]*1000));
-	freq_uv_table[index][2] =(int) arm_volt / 1000;
+	//freq_uv_table[index][2] =(int) arm_volt / 1000;
 	//arm_volt = dvs_conf[index].arm_volt;
 	int_volt = dvs_conf[index].int_volt;
 
@@ -656,7 +664,7 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 			"cpufreq: Performance changed[L%d]\n", index);
 //more uv
 	previous_arm_volt = (dvs_conf[index].arm_volt - (exp_UV_mV[index] * 1000));
-	freq_uv_table[index][2] = (int) previous_arm_volt / 1000;
+	//freq_uv_table[index][2] = (int) previous_arm_volt / 1000;
 
 	if (first_run)
 		first_run = false;
@@ -701,7 +709,7 @@ static int s5pv210_cpufreq_resume(struct cpufreq_policy *policy)
 			sizeof(struct s3c_freq));
 //even more uv
 	previous_arm_volt = (dvs_conf[level].arm_volt - (exp_UV_mV[level]*1000));
-	freq_uv_table[level][2] = (int) previous_arm_volt / 1000;
+	//freq_uv_table[level][2] = (int) previous_arm_volt / 1000;
 
 	return ret;
 }
@@ -732,7 +740,7 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
-	policy->cpuinfo.transition_latency = 40000;	/* 1us */
+	policy->cpuinfo.transition_latency = 35000;
 
 	rate = clk_get_rate(mpu_clk);
 	i = 0;
