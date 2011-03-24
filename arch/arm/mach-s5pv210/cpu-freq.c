@@ -68,7 +68,7 @@ static struct cpufreq_frequency_table freq_table[] = {
 extern int exp_UV_mV[8]; //Needed for uv
 unsigned int freq_uv_table[8][3] = {
 	//freq, stock, current
-	{1300000,	1350,	1350},
+	{1300000,	1400,	1400},
 	{1200000,	1300,	1300},
 	{1000000,	1250,	1250},
 	{800000,	1200,	1200},
@@ -85,19 +85,19 @@ struct s5pv210_dvs_conf {
 	unsigned long       int_volt;   /* uV */
 };
 
-const unsigned long arm_volt_max = 1350001;
+const unsigned long arm_volt_max = 1400000;
 const unsigned long int_volt_max = 1250000;
 
 // added more voltage levels for the added frequencies
 static struct s5pv210_dvs_conf dvs_conf[] = {
 	//1300
 	[L0] = {
-		.arm_volt   = 1350000,
+		.arm_volt   = 1400000,
 		.int_volt   = 1150000,
 	},
 	//1200
 	[L1] = {
-		.arm_volt   = 1300000,
+		.arm_volt   = 1350000,
 		.int_volt   = 1150000,
 	},
 	//1000
@@ -164,7 +164,7 @@ static struct s3c_freq clk_info[] = {
 		.hclk_tns   = 0,
 		.hclk       = 133000,
 		.pclk       = 66000,
-		.hclk_msys  = 216667,
+		.hclk_msys  = 200000,
 		.pclk_msys  = 100000,
 		.hclk_dsys  = 166750,
 		.pclk_dsys  = 83375,
@@ -740,7 +740,7 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
-	policy->cpuinfo.transition_latency = 35000;
+	policy->cpuinfo.transition_latency = 35000; /* <1us */
 
 	rate = clk_get_rate(mpu_clk);
 	i = 0;
