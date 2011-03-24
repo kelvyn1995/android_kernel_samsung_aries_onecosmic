@@ -179,6 +179,7 @@ static irqreturn_t touchkey_interrupt_thread(int irq, void *touchkey_devdata)
 
 	input_sync(devdata->input_dev);
 err:
+	dev_err(&devdata->client->dev, "%s: touchkey_interrupt_thread\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -187,6 +188,8 @@ static irqreturn_t touchkey_interrupt_handler(int irq, void *touchkey_devdata)
 	struct cypress_touchkey_devdata *devdata = touchkey_devdata;
 
 	if (devdata->is_powering_on) {
+		dev_err(&devdata->client->dev, "%s: ignoring spurious boot "
+					"interrupt\n", __func__);
 		return IRQ_HANDLED;
 	}
 
