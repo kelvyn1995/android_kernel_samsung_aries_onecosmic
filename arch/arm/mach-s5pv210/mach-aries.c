@@ -797,7 +797,7 @@ static struct max8998_regulator_data aries_regulators[] = {
 	{ MAX8998_BUCK3, &aries_buck3_data },
 	{ MAX8998_BUCK4, &aries_buck4_data },
 };
-#if defined (CONFIG_SAMSUNG_GALAXYS)
+#if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
 static struct max8998_adc_table_data temper_table[] =  {
 	/* ADC, Temperature (C/10) */
 	{  222,		700	},
