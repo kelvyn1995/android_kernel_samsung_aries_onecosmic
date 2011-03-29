@@ -4,14 +4,22 @@ export KBUILD_BUILD_VERSION="1"
 
 declare -A phones codes
 
-phones[0]="GT-I9000"
-codes[0]="galaxys"
-phones[1]="GT-I9000B"
-codes[1]="galaxysb"
-phones[2]="Captivate"
-codes[2]="captivate"
-phones[3]="Vibrant"
-codes[3]="vibrant"
+if [[ $# -eq 2 ]]; then
+	phones[0]=$1
+	codes[0]=$2
+	echo "Forced build for $1"
+	UPLOAD=0
+else
+	UPLOAD=1
+	phones[0]="GT-I9000"
+	codes[0]="galaxys"
+	phones[1]="GT-I9000B"
+	codes[1]="galaxysb"
+	phones[2]="Captivate"
+	codes[2]="captivate"
+	phones[3]="Vibrant"
+	codes[3]="vibrant"
+fi
 
 # kernel option changes
 OPTS="CONFIG_NETFILTER_XT_MATCH_MULTIPORT \
@@ -72,6 +80,10 @@ for i in ${!phones[@]}; do
 	while true; do echo; done | make oldconfig || { echo "failed config"; exit 1; }
 	make -j4 || { echo "failed build"; exit 1; }
 	f=$(./release/doit.sh $phone) || { echo "failed CWM"; exit 1; }
-	./release/upload.sh $phone $f || { echo "failed upload"; exit 1; }
+	if [[ "$UPLOAD" -eq 1 ]]; then
+		./release/upload.sh $phone $f || { echo "failed upload"; exit 1; }
+	else
+		echo "Ready as $1 $2 $f"
+	fi
 done
 echo "done."
