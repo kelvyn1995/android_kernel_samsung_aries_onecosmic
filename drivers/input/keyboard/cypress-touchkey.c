@@ -226,8 +226,6 @@ static irqreturn_t touchkey_interrupt_handler(int irq, void *touchkey_devdata)
 static void notify_led_on(void) {
 	if (unlikely(bl_devdata->is_dead))
 		return;
-	if (!bl_devdata->is_sleeping)
-		return;
 
 	if (bl_devdata->is_sleeping) {
 		bl_devdata->pdata->touchkey_sleep_onoff(TOUCHKEY_ON);
@@ -279,7 +277,6 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 		container_of(h, struct cypress_touchkey_devdata, early_suspend);
 
 	devdata->pdata->touchkey_onoff(TOUCHKEY_ON);
-	devdata->is_sleeping = false;
 
 	if (i2c_touchkey_write_byte(devdata, devdata->backlight_on)) {
 		devdata->is_dead = true;
@@ -291,6 +288,7 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 	devdata->is_dead = false;
 	enable_irq(devdata->client->irq);
 	devdata->is_powering_on = false;
+	devdata->is_sleeping = false;
 	mod_timer(&bl_timer, jiffies + msecs_to_jiffies(BACKLIGHT_TIMEOUT));
 }
 #endif
