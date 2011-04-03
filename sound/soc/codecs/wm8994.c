@@ -41,6 +41,8 @@
 #define WM8994_VERSION "0.1"
 #define SUBJECT "wm8994.c"
 
+#define AUDIO_COMMON_DEBUG	1
+
 #if defined(CONFIG_VIDEO_TV20) && defined(CONFIG_SND_S5P_WM8994_MASTER) 
 #define HDMI_USE_AUDIO
 #endif
@@ -455,7 +457,7 @@ static int wm8994_get_fmradio_path(struct snd_kcontrol *kcontrol,
 	int pathnum = ucontrol->value.integer.value[0];
 #endif
 
-	DEBUG_LOG("wm8994_get_fmradio_path : %d", pathnum);
+	pr_err("wm8994_get_fmradio_path : %d", pathnum);
 
 	return 0;
 }
@@ -472,49 +474,49 @@ static int wm8994_set_fmradio_path(struct snd_kcontrol *kcontrol,
 	
 	if(strcmp( mc->texts[path_num], fmradio_path[path_num]) )
 	{		
-		DEBUG_LOG_ERR("Unknown path %s\n", mc->texts[path_num] );		
+		pr_err("Unknown path %s\n", mc->texts[path_num] );		
 	}
 	
 	if(path_num == wm8994->fmradio_path)
 	{
-		DEBUG_LOG("%s is already set. skip to set path.. \n", mc->texts[path_num]);
+		pr_err("%s is already set. skip to set path.. \n", mc->texts[path_num]);
 		return 0;
 	}
 		
 	switch(path_num)
 	{
 		case FMR_OFF:
-			DEBUG_LOG("Switching off output path\n");
+			pr_err("Switching off output path\n");
 			wm8994_disable_fmradio_path(codec, FMR_OFF);
 			break;
 			
 		case FMR_SPK:
-			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num] );
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num] );
 			wm8994_set_fmradio_speaker(codec);
 			break;
 
 		case FMR_HP:
-			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num] );
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num] );
 			wm8994_set_fmradio_headset(codec);
 			break;
 
 		case FMR_SPK_MIX:
-			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
 			wm8994_set_fmradio_speaker_mix(codec);
 			break;
 
 		case FMR_HP_MIX:
-			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
 			wm8994_set_fmradio_headset_mix(codec);
 			break;
 
 		case FMR_SPK_HP_MIX :
-			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
 			wm8994_set_fmradio_speaker_headset_mix(codec);
 			break;			
 
 		default:
-			DEBUG_LOG_ERR("The audio path[%d] does not exists!! \n", path_num);
+			pr_err("The audio path[%d] does not exists!! \n", path_num);
 			return -ENODEV;
 			break;
 	}

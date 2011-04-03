@@ -48,6 +48,8 @@
 #if defined(CONFIG_VIDEO_TV20) && defined(CONFIG_SND_S5P_WM8994_MASTER)
 #define HDMI_USE_AUDIO
 #endif
+#define AUDIO_COMMON_DEBUG	1
+
 
 /*
  *Definitions of clock related.
@@ -284,6 +286,9 @@ static const char *playback_path[] = {
 static const char *voicecall_path[] = { "OFF", "RCV", "SPK", "HP",
 					"HP_NO_MIC", "BT", "TTY_VCO",
 					"TTY_HCO", "TTY_FULL"};
+static const char *fmradio_path[] = { "FMR_OFF", "FMR_SPK", "FMR_HP",
+					"FMR_SPK_MIX", "FMR_SPK_HP_MIX", "FMR_HP_MIX",
+					"FMR_DUAL_MIX"};
 static const char *mic_path[] = { "Main Mic", "Hands Free Mic",
 					"BT Sco Mic", "MIC OFF" };
 static const char *input_source_state[] = { "Default", "Voice Recognition",
@@ -497,6 +502,80 @@ static int wm8994_set_input_source(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int wm8994_get_fmradio_path(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+#if AUDIO_COMMON_DEBUG		// for removing warning on compliing.
+	int pathnum = ucontrol->value.integer.value[0];
+#endif
+
+	pr_err("wm8994_get_fmradio_path : %d", pathnum);
+
+	return 0;
+}
+
+static int wm8994_set_fmradio_path(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *mc =
+		(struct soc_enum *)kcontrol->private_value;
+	struct wm8994_priv *wm8994 = codec->drvdata;
+	
+	int path_num = ucontrol->value.integer.value[0];	
+	
+	if(strcmp( mc->texts[path_num], fmradio_path[path_num]) )
+	{		
+		pr_err("Unknown path %s\n", mc->texts[path_num] );		
+	}
+	
+	if(path_num == wm8994->fmradio_path)
+	{
+		pr_err("%s is already set. skip to set path.. \n", mc->texts[path_num]);
+		return 0;
+	}
+		
+	switch(path_num)
+	{
+		case FMR_OFF:
+			pr_err("Switching off output path\n");
+			wm8994_disable_fmradio_path(codec, FMR_OFF);
+			break;
+			
+		case FMR_SPK:
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num] );
+			wm8994_set_fmradio_speaker(codec);
+			break;
+
+		case FMR_HP:
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num] );
+			wm8994_set_fmradio_headset(codec);
+			break;
+
+		case FMR_SPK_MIX:
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			wm8994_set_fmradio_speaker_mix(codec);
+			break;
+
+		case FMR_HP_MIX:
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			wm8994_set_fmradio_headset_mix(codec);
+			break;
+
+		case FMR_SPK_HP_MIX :
+			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			wm8994_set_fmradio_speaker_headset_mix(codec);
+			break;			
+
+		default:
+			pr_err("The audio path[%d] does not exists!! \n", path_num);
+			return -ENODEV;
+			break;
+	}
+	
+	return 0;
+}
+
 #define  SOC_WM899X_OUTPGA_DOUBLE_R_TLV(xname, reg_left, reg_right,\
 		xshift, xmax, xinvert, tlv_array) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
@@ -528,7 +607,8 @@ static const DECLARE_TLV_DB_LINEAR(digital_tlv_mic, -7162, 7162);
 static const struct soc_enum path_control_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(playback_path), playback_path),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(voicecall_path), voicecall_path),
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mic_path), mic_path),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(fmradio_path),fmradio_path), 
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mic_path), mic_path),	
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(input_source_state), input_source_state),
 };
 
@@ -557,12 +637,15 @@ static const struct snd_kcontrol_new wm8994_snd_controls[] = {
 
 	SOC_ENUM_EXT("Capture MIC Path", path_control_enum[2],
 		     wm8994_get_mic_path, wm8994_set_mic_path),
+		     
+	SOC_ENUM_EXT("FM Radio Path", path_control_enum[3],
+                wm8994_get_fmradio_path, wm8994_set_fmradio_path),
 
 #if defined USE_INFINIEON_EC_FOR_VT
 	SOC_ENUM_EXT("Clock Control", clock_control_enum[0],
 		     s3c_pcmdev_get_clock, s3c_pcmdev_set_clock),
 #endif
-	SOC_ENUM_EXT("Input Source", path_control_enum[3],
+	SOC_ENUM_EXT("Input Source", path_control_enum[4],
 		     wm8994_get_input_source, wm8994_set_input_source),
 
 };

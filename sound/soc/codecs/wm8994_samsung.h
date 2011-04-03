@@ -32,7 +32,7 @@ extern struct snd_soc_dai wm8994_dai;
 #define WM8994_SYSCLK_MCLK     1
 #define WM8994_SYSCLK_FLL      2
 
-#define AUDIO_COMMON_DEBUG	0
+#define AUDIO_COMMON_DEBUG	1
 
 #define DEACTIVE		0x00
 #define PLAYBACK_ACTIVE		0x01
@@ -118,6 +118,8 @@ enum mic_path		{MAIN, SUB, BT_REC, MIC_OFF};
 enum power_state	{CODEC_OFF, CODEC_ON };
 enum ringtone_state	{RING_OFF, RING_ON};
 enum input_source_state	{DEFAULT, RECOGNITION, CAMCORDER, VOICE_COMMUNICATION};
+enum fmradio_path { FMR_OFF, FMR_SPK, FMR_HP, FMR_SPK_MIX, FMR_SPK_HP_MIX, FMR_HP_MIX, FMR_DUAL_MIX};
+//enum fmradio_mix_path	{ FMR_MIX_OFF, FMR_MIX_HP, FMR_MIX_SPK, FMR_MIX_DUAL};
 
 typedef void (*select_route)(struct snd_soc_codec *);
 typedef void (*select_mic_route)(struct snd_soc_codec *);
@@ -148,6 +150,7 @@ struct wm8994_priv {
 	unsigned int  stream_state;
 	enum audio_path cur_path;
 	enum mic_path rec_path;
+	enum fmradio_path fmradio_path;
 	enum power_state power_state;
 	enum input_source_state input_source;
 	enum ringtone_state ringtone_active;
@@ -204,6 +207,12 @@ void wm8994_set_voicecall_bluetooth(struct snd_soc_codec *codec);
 void wm8994_set_voicecall_tty_vco(struct snd_soc_codec *codec);
 void wm8994_set_voicecall_tty_hco(struct snd_soc_codec *codec);
 void wm8994_set_voicecall_tty_full(struct snd_soc_codec *codec);
+void wm8994_disable_fmradio_path(struct snd_soc_codec *codec, enum fmradio_path path);
+void wm8994_set_fmradio_speaker(struct snd_soc_codec *codec);
+void wm8994_set_fmradio_headset(struct snd_soc_codec *codec);
+void wm8994_set_fmradio_speaker_mix(struct snd_soc_codec *codec);
+void wm8994_set_fmradio_headset_mix(struct snd_soc_codec *codec);
+void wm8994_set_fmradio_speaker_headset_mix(struct snd_soc_codec *codec);
 int wm8994_set_codec_gain(struct snd_soc_codec *codec, u16 mode, u16 device);
 extern int gain_code_check(void);
 #endif

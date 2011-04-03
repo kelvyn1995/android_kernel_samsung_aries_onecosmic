@@ -45,6 +45,8 @@ extern struct snd_soc_dai wm8994_dai;
 enum audio_path	{ OFF, RCV, SPK, HP, BT, SPK_HP};
 enum mic_path		{ MAIN, SUB, MIC_OFF};
 enum fmradio_audio_path { FMR_OFF, FMR_SPK, FMR_HP, FMR_SPK_MIX, FMR_HP_MIX, FMR_SPK_HP_MIX};
+
+enum fmradio_mix_path	{ FMR_MIX_OFF, FMR_MIX_HP, FMR_MIX_SPK, FMR_MIX_DUAL};
 enum call_state		{ DISCONNECT, CONNECT};
 enum power_state	{ CODEC_OFF, CODEC_ON };
 enum mic_state		{ MIC_NO_USE, MIC_USE};
@@ -97,7 +99,7 @@ int audio_power(int en);
 void audio_ctrl_mic_bias_gpio(int enable);
 void wm8994_set_off(struct snd_soc_codec *codec);
 void wm8994_disable_playback_path(struct snd_soc_codec *codec, enum audio_path path);
-void wm8994_disable_fmradio_path(struct snd_soc_codec *codec, enum fmradio_audio_path path);
+void wm8994_disable_fmradio_path(struct snd_soc_codec *codec, enum fmradio_path path);
 void wm8994_disable_rec_path(struct snd_soc_codec *codec,enum mic_path rec_path);
 void  wm8994_record_main_mic( struct snd_soc_codec *codec);
 void wm8994_record_headset_mic( struct snd_soc_codec *codec);

@@ -5,7 +5,7 @@
 #include <linux/types.h>
 #include <mach/gpio.h>
 
-//#define Si4709_DEBUG
+#define Si4709_DEBUG
 
 #define error(fmt,arg...) printk(KERN_CRIT fmt "\n",## arg)
 
@@ -25,7 +25,7 @@
 
 /*VNVS:18-JUN'10---- For testing RDS*/
 /*Enable only for debugging RDS*/
-//#define RDS_TESTING
+#define RDS_TESTING
 #ifdef RDS_TESTING
 #define debug_rds(fmt,arg...) printk(KERN_CRIT "--------" fmt "\n",## arg)
 #define GROUP_TYPE_2A     ( 2 * 2 + 0)
