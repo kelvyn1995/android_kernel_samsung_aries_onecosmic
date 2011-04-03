@@ -2066,7 +2066,7 @@ CONFIG_DEBUG_S3C_UART=2
 #
 # Security options
 #
-# CONFIG_KEYS is not set
+CONFIG_KEYS=y
 # CONFIG_SECURITY is not set
 # CONFIG_SECURITYFS is not set
 # CONFIG_DEFAULT_SECURITY_SELINUX is not set
