@@ -311,7 +311,7 @@ static int wm8994_set_mic_path(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct wm8994_priv *wm8994 = codec->drvdata;
 
-	DEBUG_LOG("");
+	pr_err("%s", __func__);
 
 	wm8994->codec_state |= CAPTURE_ACTIVE;
 
@@ -342,6 +342,8 @@ static int wm8994_get_path(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct wm8994_priv *wm8994 = codec->drvdata;
+	
+	DEBUG_LOG("%s", __func__);
 
 	ucontrol->value.integer.value[0] = wm8994->cur_path;
 
@@ -393,7 +395,7 @@ static int wm8994_set_path(struct snd_kcontrol *kcontrol,
 		path_num -= 4;
 		break;
 	default:
-		DEBUG_LOG_ERR("audio path[%d] does not exists!!\n", path_num);
+		DEBUG_LOG("audio path[%d] does not exists!!\n", path_num);
 		return -ENODEV;
 		break;
 	}
@@ -435,7 +437,7 @@ static int wm8994_set_voice_path(struct snd_kcontrol *kcontrol,
 	int path_num = ucontrol->value.integer.value[0];
 
 	if (strcmp(mc->texts[path_num], voicecall_path[path_num])) {
-		DEBUG_LOG_ERR("Unknown path %s\n", mc->texts[path_num]);
+		pr_err("Unknown path %s\n", mc->texts[path_num]);
 		return -ENODEV;
 	}
 
@@ -454,7 +456,7 @@ static int wm8994_set_voice_path(struct snd_kcontrol *kcontrol,
 		DEBUG_LOG("routing  voice path to %s\n", mc->texts[path_num]);
 		break;
 	default:
-		DEBUG_LOG_ERR("path[%d] does not exists!\n", path_num);
+		DEBUG_LOG("path[%d] does not exists!\n", path_num);
 		return -ENODEV;
 		break;
 	}
@@ -509,7 +511,7 @@ static int wm8994_get_fmradio_path(struct snd_kcontrol *kcontrol,
 	int pathnum = ucontrol->value.integer.value[0];
 #endif
 
-	pr_err("wm8994_get_fmradio_path : %d", pathnum);
+	DEBUG_LOG("wm8994_get_fmradio_path : %d", pathnum);
 
 	return 0;
 }
@@ -521,6 +523,8 @@ static int wm8994_set_fmradio_path(struct snd_kcontrol *kcontrol,
 	struct soc_enum *mc =
 		(struct soc_enum *)kcontrol->private_value;
 	struct wm8994_priv *wm8994 = codec->drvdata;
+	
+	DEBUG_LOG("");
 	
 	int path_num = ucontrol->value.integer.value[0];	
 	
@@ -538,37 +542,37 @@ static int wm8994_set_fmradio_path(struct snd_kcontrol *kcontrol,
 	switch(path_num)
 	{
 		case FMR_OFF:
-			pr_err("Switching off output path\n");
+			DEBUG_LOG("Switching off output path\n");
 			wm8994_disable_fmradio_path(codec, FMR_OFF);
 			break;
 			
 		case FMR_SPK:
-			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num] );
+			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num] );
 			wm8994_set_fmradio_speaker(codec);
 			break;
 
 		case FMR_HP:
-			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num] );
+			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num] );
 			wm8994_set_fmradio_headset(codec);
 			break;
 
 		case FMR_SPK_MIX:
-			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num]);
 			wm8994_set_fmradio_speaker_mix(codec);
 			break;
 
 		case FMR_HP_MIX:
-			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num]);
 			wm8994_set_fmradio_headset_mix(codec);
 			break;
 
 		case FMR_SPK_HP_MIX :
-			pr_err("routing  fmradio path to  %s \n", mc->texts[path_num]);
+			DEBUG_LOG("routing  fmradio path to  %s \n", mc->texts[path_num]);
 			wm8994_set_fmradio_speaker_headset_mix(codec);
 			break;			
 
 		default:
-			pr_err("The audio path[%d] does not exists!! \n", path_num);
+			DEBUG_LOG("The audio path[%d] does not exists!! \n", path_num);
 			return -ENODEV;
 			break;
 	}
