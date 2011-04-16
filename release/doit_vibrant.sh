@@ -7,7 +7,7 @@
 
 
 TYPE=$1
-[[ "$TYPE" == '' ]] && TYPE=SGS
+[[ "$TYPE" == '' ]] && TYPE=VIBRANT
 
 REL=CM7_${TYPE}_platypus-kernel_$(date +%Y%m%d_%H)_update.zip
 
