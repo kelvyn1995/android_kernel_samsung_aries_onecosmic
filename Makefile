@@ -546,19 +546,18 @@ KBUILD_CFLAGS += $(call cc-option, -fno-stack-protector)
 endif
 
 ifdef CONFIG_FRAME_POINTER
-# KBUILD_CFLAGS  += -fno-omit-frame-pointer -fno-optimize-sibling-calls
-KBUILD_CFLAGS   += -fomit-frame-pointer
+KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else
 KBUILD_CFLAGS	+= -fomit-frame-pointer
 endif
 
 ifdef CONFIG_DEBUG_INFO
-#KBUILD_CFLAGS	+= -g
-#KBUILD_AFLAGS	+= -gdwarf-2
+KBUILD_CFLAGS	+= -g
+KBUILD_AFLAGS	+= -gdwarf-2
 endif
 
 ifdef CONFIG_FUNCTION_TRACER
-#KBUILD_CFLAGS	+= -pg
+KBUILD_CFLAGS	+= -pg
 endif
 
 # We trigger additional mismatches with less inlining

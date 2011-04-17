@@ -490,12 +490,12 @@ unsigned long get_wchan(struct task_struct *p)
 	frame.sp = thread_saved_sp(p);
 	frame.lr = 0;			/* recovered from the stack */
 	frame.pc = thread_saved_pc(p);
-/*	do {
+	do {
 		int ret = unwind_frame(&frame);
 		if (ret < 0)
 			return 0;
 		if (!in_sched_functions(frame.pc))
 			return frame.pc;
-	} while (count ++ < 16); */
+	} while (count ++ < 16);
 	return 0;
 }

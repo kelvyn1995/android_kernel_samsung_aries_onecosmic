@@ -9,7 +9,7 @@ source "lib/Kconfig.debug"
 config FRAME_POINTER
 	bool
 	depends on !THUMB2_KERNEL
-	default n
+	default y if !ARM_UNWIND
 	help
 	  If you say N here, the resulting kernel will be slightly smaller and
 	  faster. However, if neither FRAME_POINTER nor ARM_UNWIND are enabled,
@@ -29,7 +29,6 @@ config ARM_UNWIND
 
 config DEBUG_USER
 	bool "Verbose user fault messages"
-	default n
 	help
 	  When a user program crashes due to an exception, the kernel can
 	  print a brief message explaining what the problem was. This is
