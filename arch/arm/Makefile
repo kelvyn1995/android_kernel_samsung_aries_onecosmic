@@ -32,6 +32,7 @@ endif
 
 ifeq ($(CONFIG_FRAME_POINTER),y)
 #KBUILD_CFLAGS	+=-fno-omit-frame-pointer -mapcs -mno-sched-prolog
+KBUILD_CFLAGS  +=-fomit-frame-pointer
 endif
 
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
