@@ -173,6 +173,48 @@ config ARIES_LATONA
 	help
 	Select S1 LATONA
 
+if MACH_ARIES
+choice
+	prompt "Select Device Type"
+
+config SAMSUNG_GALAXYS
+	bool "select GTI9000"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Galaxy S GT-I9000
+
+config SAMSUNG_GALAXYSB
+	bool "select GTI9000B"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Galaxy S GT-I9000B
+
+config SAMSUNG_CAPTIVATE
+	bool "select SGHI897"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Captivate
+
+config SAMSUNG_VIBRANT
+	bool "select SGHT959"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Vibrant
+
+config SAMSUNG_FASCINATE
+	bool "select SCHI500"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Fascinate
+
+config SAMSUNG_EPIC
+	bool "select SPHD700"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Epic 4G
+endchoice
+endif
+
 config S5PV210_SETUP_FB
 	bool
 	depends on FB_S3C
