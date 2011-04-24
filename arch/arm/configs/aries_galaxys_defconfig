@@ -1071,6 +1071,8 @@ CONFIG_NETDEV_10000=y
 CONFIG_WLAN=y
 CONFIG_BROADCOM_WIFI=m
 # CONFIG_BROADCOM_WIFI_RESERVED_MEM is not set
+CONFIG_BCM4329_FW_PATH="/vendor/firmware/fw_bcm4329_sta.bin"
+CONFIG_BCM4329_NVRAM_PATH="/vendor/firmware/nvram_net.txt"
 # CONFIG_HOSTAP is not set
 
 #
