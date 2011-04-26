@@ -244,10 +244,9 @@ static void notify_led_off(void) {
 	if (bl_on)
 		i2c_touchkey_write_byte(bl_devdata, bl_devdata->backlight_off);
 
-	if (bl_devdata->is_sleeping) {
+	bl_devdata->pdata->touchkey_sleep_onoff(TOUCHKEY_OFF);
+	if (bl_devdata->is_sleeping)
 		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
-		bl_devdata->pdata->touchkey_sleep_onoff(TOUCHKEY_OFF);
-	}
 
 	bl_on = 0;
 	printk(KERN_DEBUG "%s: notification led disabled\n", __FUNCTION__);
