@@ -53,6 +53,8 @@ CONFIG_STRACKTRACE \
 CONFIG_STACKTRACE_SUPPORT
 "
 
+OPTNEWVAL="CONFIG_PVR_ACTIVE_POWER_LATENCY_MS=40"
+
 for i in ${!phones[@]}; do
 	phone=${phones[$i]}
 	code=${codes[$i]}
@@ -73,6 +75,15 @@ for i in ${!phones[@]}; do
 		fi
 		}
 	done
+
+	echo "Changing some config values..."
+	for o in $OPTNEWVAL; do
+		echo "~ ${o}"
+		c=$(echo ${o}|cut -d '=' -f 1)
+		sed -i "s/^${c}=[0-9]*$/${o}/" .config
+	done
+	exit
+
 	echo "Disabling some config options..."
 	for o in $OPTSOFF; do
 		echo "- ${o}"
