@@ -4,11 +4,14 @@ export KBUILD_BUILD_VERSION="1"
 
 declare -A phones codes
 
-if [[ $# -eq 2 ]]; then
+if [[ $# -gt 1 ]]; then
 	phones[0]=$1
 	codes[0]=$2
 	echo "Forced build for $1"
 	UPLOAD=0
+	if [[ $# -eq 3 ]]; then
+		UPLOAD=1
+	fi
 else
 	UPLOAD=1
 	phones[0]="GT-I9000"
