@@ -31,8 +31,6 @@ CONFIG_TINY_RCU \
 CONFIG_IP_ADVANCED_ROUTER \
 CONFIG_NLS_UTF8 \
 CONFIG_TIMER_STATS \
-CONFIG_CPU_FREQ_GOV_INTERACTIVE \
-CONFIG_CPU_FREQ_GOV_SMARTASS \
 CONFIG_MODVERSIONS
 "
 OPTSOFF="CONFIG_TREE_RCU \
@@ -53,7 +51,8 @@ CONFIG_STRACKTRACE \
 CONFIG_STACKTRACE_SUPPORT
 "
 
-OPTNEWVAL="CONFIG_PVR_ACTIVE_POWER_LATENCY_MS=40"
+OPTNEWVAL=""
+RELVER=$(($(cat .relver)+1))
 
 for i in ${!phones[@]}; do
 	phone=${phones[$i]}
@@ -82,7 +81,6 @@ for i in ${!phones[@]}; do
 		c=$(echo ${o}|cut -d '=' -f 1)
 		sed -i "s/^${c}=[0-9]*$/${o}/" .config
 	done
-	exit
 
 	echo "Disabling some config options..."
 	for o in $OPTSOFF; do
@@ -93,7 +91,7 @@ for i in ${!phones[@]}; do
 	#"ok" to defaults
 	while true; do echo; done | make oldconfig || { echo "failed config"; exit 1; }
 	make -j4 || { echo "failed build"; exit 1; }
-	f=$(./release/doit.sh $phone) || { echo "failed CWM"; exit 1; }
+	f=$(./release/doit.sh $phone $RELVER) || { echo "failed CWM"; exit 1; }
 	if [[ "$UPLOAD" -eq 1 ]]; then
 		./release/upload.sh $phone $f || { echo "failed upload"; exit 1; }
 	else
