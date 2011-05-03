@@ -2025,6 +2025,7 @@ static int s5ka3dfx_power_on(void)
 	if (s5ka3dfx_power_init()) {
 		pr_err("Failed to get all regulator\n");
 		return -EINVAL;
+<<<<<<< HEAD
 	}
 
 	s5ka3dfx_request_gpio();
@@ -2034,6 +2035,17 @@ static int s5ka3dfx_power_on(void)
 		pr_err("Failed to enable regulator vga_avdd\n");
 		return -EINVAL;
 	}
+=======
+	}
+
+	s5ka3dfx_request_gpio();
+	/* Turn VGA_AVDD_2.8V on */
+	/*err = regulator_enable(s5ka3dfx_vga_avdd);
+	if (err) {
+		pr_err("Failed to enable regulator vga_avdd\n");
+		return -EINVAL;
+	}
+>>>>>>> 1a35677... mach-aries.c: fixes for front camera
 	msleep(3);*/
 	// Turn CAM_ISP_SYS_2.8V on
 	gpio_direction_output(GPIO_GPB7, 0);
