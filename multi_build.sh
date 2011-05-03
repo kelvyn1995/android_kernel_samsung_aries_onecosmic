@@ -79,7 +79,7 @@ for i in ${!phones[@]}; do
 	for o in $OPTNEWVAL; do
 		echo "~ ${o}"
 		c=$(echo ${o}|cut -d '=' -f 1)
-		sed -i "s/^${c}=[0-9]*$/${o}/" .config
+		sed -i "s/^${c}=[^*]*$/${o}/" .config
 	done
 
 	echo "Disabling some config options..."
@@ -91,6 +91,9 @@ for i in ${!phones[@]}; do
 	#"ok" to defaults
 	while true; do echo; done | make oldconfig || { echo "failed config"; exit 1; }
 	make -j4 || { echo "failed build"; exit 1; }
+
+	../../../device/samsung/common/aries/mkshbootimg.py release/boot.img arch/arm/boot/zImage ../../../out/target/product/$code/ramdisk.cpio.gz ../../../out/target/product/$code/recovery.cpio.gz || { echo "failed mkshbootimg"; exit 1; }
+
 	f=$(./release/doit.sh $phone $RELVER) || { echo "failed CWM"; exit 1; }
 	if [[ "$UPLOAD" -eq 1 ]]; then
 		./release/upload.sh $phone $f || { echo "failed upload"; exit 1; }
@@ -98,4 +101,5 @@ for i in ${!phones[@]}; do
 		echo "Ready as $1 $2 $f"
 	fi
 done
+echo $RELVER > .relver
 echo "done."
