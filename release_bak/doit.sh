@@ -5,10 +5,9 @@
 	exit 1;
 }
 
-echo "packaging it up"
 
 TYPE=$1
-[[ "$TYPE" == '' ]] && TYPE=VIBRANT
+[[ "$TYPE" == '' ]] && TYPE=SGS
 
 RELVER=$2
 [[ "$RELVER" == '' ]] && RELVER="0"

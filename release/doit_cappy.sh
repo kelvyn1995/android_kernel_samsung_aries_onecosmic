@@ -5,9 +5,10 @@
 	exit 1;
 }
 
+echo "packaging it up"
 
 TYPE=$1
-[[ "$TYPE" == '' ]] && TYPE=CAPTIVATE
+[[ "$TYPE" == '' ]] && TYPE=CAPPY
 
 RELVER=$2
 [[ "$RELVER" == '' ]] && RELVER="0"

@@ -5,6 +5,7 @@
 	exit 1;
 }
 
+echo "packaging it up"
 
 TYPE=$1
 [[ "$TYPE" == '' ]] && TYPE=SGS
