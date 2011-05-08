@@ -28,7 +28,6 @@
 #include <plat/regs-otg.h>
 #include <linux/i2c.h>
 #include <linux/regulator/consumer.h>
-#include <mach/cpu-freq-v210.h>
 #if	defined(CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE) /* DMA mode */
 #define OTG_DMA_MODE		1
 
@@ -116,7 +115,6 @@ static unsigned int ep0_fifo_size = 64;
 static unsigned int ep_fifo_size =  512;
 static unsigned int ep_fifo_size2 = 1024;
 static int reset_available = 1;
-static int g_clocked = 0;
 
 /*
   Local declarations.
@@ -357,31 +355,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 }
 EXPORT_SYMBOL(usb_gadget_register_driver);
 
-static void otg_clock_enable(int enable)
-{
-	if(enable) {
-		if(!g_clocked) {
-			clk_enable(otg_clock);
-			g_clocked = 1;
-			printk("[%s] clk_enable(otg_clock) OK.\n", __func__);
-		}
-		else {
-			printk("[%s] already clk_enabled.\n", __func__);
-		}
-	}
-	else {
-		if(g_clocked) {
-			clk_disable(otg_clock);
-			g_clocked = 0;
-			printk("[%s] clk_disable(otg_clock) OK.\n", __func__);
-		}
-		else {
-			printk("[%s] already clk_disabled\n", __func__);
-		}
-	}
-}
-
-
 /*
   Unregister entry point for the peripheral controller driver.
 */
@@ -434,17 +407,6 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int enable)
 	unsigned long flags;
 	struct s3c_udc *dev = the_controller;
 
- // USB Gadget entry point
- if (enable) {
-  dev_info(&gadget->dev, "USB udc %d,%d lock\n", dev->udc_enabled, enable);
-  //wake_lock(&dev->udc_wake_lock);
-  s5pv210_lock_dvfs_high_level(DVFS_LOCK_TOKEN_8, L3); //200Mhz lock
- } else {
-  dev_info(&gadget->dev, "USB udc %d,%d unlock\n", dev->udc_enabled, enable);
-  //wake_unlock(&dev->udc_wake_lock);
-  s5pv210_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_8);
- }
-
 	if (dev->udc_enabled != enable) {
 		dev->udc_enabled = enable;
 		if (!enable) {
@@ -452,11 +414,11 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int enable)
 			stop_activity(dev, dev->driver);
 			spin_unlock_irqrestore(&dev->lock, flags);
 			udc_disable(dev);
-			otg_clock_enable(0);
+			clk_disable(otg_clock);
 			s3c_udc_power(dev, 0);
 		} else {
 			s3c_udc_power(dev, 1);
-			otg_clock_enable(1);
+			clk_enable(otg_clock);
 			udc_reinit(dev);
 			udc_enable(dev);
 		}
@@ -631,12 +593,7 @@ static void reconfig_usbd(void)
 	while (readl(S3C_UDC_OTG_GRSTCTL) & 0x20)
 		;
 
-	/* 13. Clear NAK bit of EP0, EP1, EP2*/
-	/* For Slave mode*/
-//	writel(DEPCTL_EPDIS|DEPCTL_CNAK|(0<<0),
-//	       S3C_UDC_OTG_DOEPCTL(EP0_CON)); /* EP0: Control OUT */
-
-	/* 14. Initialize OTG Link Core.*/
+	/* 13. Initialize OTG Link Core.*/
 	writel(GAHBCFG_INIT, S3C_UDC_OTG_GAHBCFG);
 }
 
@@ -921,6 +878,8 @@ void s3c_udc_soft_connect(void)
 	uTemp = uTemp & ~SOFT_DISCONNECT;
 	writel(uTemp, S3C_UDC_OTG_DCTL);
 	msleep(1);
+
+	reset_available = 1;
 
 	/* Unmask the core interrupt */
 	writel(readl(S3C_UDC_OTG_GINTSTS), S3C_UDC_OTG_GINTSTS);
@@ -1222,8 +1181,8 @@ static int s3c_udc_probe(struct platform_device *pdev)
 	dev->gadget.a_hnp_support = 0;
 	dev->gadget.a_alt_hnp_support = 0;
 
-	dev->udc_vcc_d = regulator_get(NULL, "usb_io");
-	dev->udc_vcc_a = regulator_get(NULL, "usb_core");
+	dev->udc_vcc_d = regulator_get(&pdev->dev, "pd_io");
+	dev->udc_vcc_a = regulator_get(&pdev->dev, "pd_core");
 	if (IS_ERR(dev->udc_vcc_d) || IS_ERR(dev->udc_vcc_a)) {
 		printk(KERN_ERR "failed to find udc vcc source\n");
 		return -ENOENT;
@@ -1263,7 +1222,7 @@ static int s3c_udc_remove(struct platform_device *pdev)
 	DEBUG("%s: %p\n", __func__, pdev);
 
 	if (otg_clock != NULL) {
-		otg_clock_enable(0);
+		clk_disable(otg_clock);
 		clk_put(otg_clock);
 		otg_clock = NULL;
 	}
