@@ -402,7 +402,7 @@ static struct s5p_media_device aries_media_devs[] = {
 
 
 static struct regulator_consumer_supply ldo3_consumer[] = {
-	REGULATOR_SUPPLY("pd_io", "s3c-usbgadget")
+	REGULATOR_SUPPLY("usb_io", NULL),
 };
 
 static struct regulator_consumer_supply ldo5_consumer[] = {
@@ -414,8 +414,8 @@ static struct regulator_consumer_supply ldo7_consumer[] = {
 };
 
 static struct regulator_consumer_supply ldo8_consumer[] = {
-	REGULATOR_SUPPLY("pd_core", "s3c-usbgadget"),
-        REGULATOR_SUPPLY("tvout", NULL),
+	REGULATOR_SUPPLY("usb_core", NULL),
+	REGULATOR_SUPPLY("tvout", NULL),
 };
 
 static struct regulator_consumer_supply ldo11_consumer[] = {
@@ -823,15 +823,14 @@ static struct max8998_charger_data aries_charger = {
 };
 
 static struct max8998_platform_data max8998_pdata = {
-	.num_regulators = ARRAY_SIZE(aries_regulators),
-	.regulators     = aries_regulators,
-	.charger        = &aries_charger,
-	/* Preloads must be in increasing order of voltage value */
-	.buck1_preload	= {950000, 1050000, 1200000, 1275000},
-	.buck2_preload	= {1000000, 1100000},
-	.set1_gpio	= GPIO_BUCK_1_EN_A,
-	.set2_gpio	= GPIO_BUCK_1_EN_B,
-	.set3_gpio	= GPIO_BUCK_2_EN,
+	.num_regulators		= ARRAY_SIZE(aries_regulators),
+	.regulators		= aries_regulators,
+	.charger		= &aries_charger,
+	.buck1_set1		= GPIO_BUCK_1_EN_A,
+	.buck1_set2		= GPIO_BUCK_1_EN_B,
+	.buck2_set3		= GPIO_BUCK_2_EN,
+	.buck1_voltage_set	= { 1275000, 1200000, 1050000, 950000 },
+	.buck2_voltage_set	= { 1100000, 1000000 },
 };
 
 struct platform_device sec_device_dpram = {
@@ -2318,9 +2317,13 @@ static struct i2c_board_info i2c_devs5[] __initdata = {
 
 static struct i2c_board_info i2c_devs8[] __initdata = {
 	{
-		I2C_BOARD_INFO("Si4709", (0x20 >> 1)),
+		I2C_BOARD_INFO("Si4709", 0x20 >> 1),
+		.irq = (IRQ_EINT_GROUP20_BASE + 4), /* J2_4 */
 	},
 };
+
+static int fsa9480_init_flag = 0;
+static bool mtp_off_status;
 
 static void fsa9480_usb_cb(bool attached)
 {
@@ -2388,12 +2391,18 @@ static void fsa9480_reset_cb(void)
 		pr_err("Failed to register dock switch. %d\n", ret);
 }
 
+static void fsa9480_set_init_flag(void)
+{
+	fsa9480_init_flag = 1;
+}
+
 static struct fsa9480_platform_data fsa9480_pdata = {
 	.usb_cb = fsa9480_usb_cb,
 	.charger_cb = fsa9480_charger_cb,
 	.deskdock_cb = fsa9480_deskdock_cb,
 	.cardock_cb = fsa9480_cardock_cb,
 	.reset_cb = fsa9480_reset_cb,
+	.set_init_flag = fsa9480_set_init_flag,
 };
 
 static struct i2c_board_info i2c_devs7[] __initdata = {
@@ -2573,6 +2582,51 @@ struct platform_device sec_device_battery = {
 	.id	= -1,
 };
 
+static int sec_switch_get_cable_status(void)
+{
+	return mtp_off_status ? CABLE_TYPE_NONE : set_cable_status;
+}
+
+static int sec_switch_get_phy_init_status(void)
+{
+	return fsa9480_init_flag;
+}
+
+static void sec_switch_set_vbus_status(u8 mode)
+{
+	if (mode == USB_VBUS_ALL_OFF)
+		mtp_off_status = true;
+
+	if (charger_callbacks && charger_callbacks->set_esafe)
+		charger_callbacks->set_esafe(charger_callbacks, mode);
+}
+
+static void sec_switch_set_usb_gadget_vbus(bool en)
+{
+	struct usb_gadget *gadget = platform_get_drvdata(&s3c_device_usbgadget);
+
+	if (gadget) {
+		if (en)
+			usb_gadget_vbus_connect(gadget);
+		else
+			usb_gadget_vbus_disconnect(gadget);
+	}
+}
+
+static struct sec_switch_platform_data sec_switch_pdata = {
+	.set_vbus_status = sec_switch_set_vbus_status,
+	.set_usb_gadget_vbus = sec_switch_set_usb_gadget_vbus,
+	.get_cable_status = sec_switch_get_cable_status,
+	.get_phy_init_status = sec_switch_get_phy_init_status,
+};
+
+struct platform_device sec_device_switch = {
+	.name	= "sec_switch",
+	.id	= 1,
+	.dev	= {
+		.platform_data	= &sec_switch_pdata,
+	}
+};
 static struct platform_device sec_device_rfkill = {
 	.name	= "bt_rfkill",
 	.id	= -1,
@@ -5187,6 +5241,11 @@ static void __init aries_machine_init(void)
 	uart_switch_init();
 
 	aries_init_wifi_mem();
+
+	#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+/* soonyong.cho : This is for setting unique serial number */
+	s3c_usb_set_serial();
+	#endif
 
 	/* write something into the INFORM6 register that we can use to
 	 * differentiate an unclear reboot from a clean reboot (which

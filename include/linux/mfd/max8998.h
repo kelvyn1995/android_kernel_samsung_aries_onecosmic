@@ -1,5 +1,5 @@
 /*
- * max8698.h - Voltage regulator driver for the Maxim 8998
+ * max8998.h - Voltage regulator driver for the Maxim 8998
  *
  *  Copyright (C) 2009-2010 Samsung Electrnoics
  *  Kyungmin Park <kyungmin.park@samsung.com>
@@ -24,9 +24,6 @@
 #define __LINUX_MFD_MAX8998_H
 
 #include <linux/regulator/machine.h>
-
-#define MAX8998_N_DVSARM_REGS	4
-#define MAX8998_N_DVSINT_REGS	2
 
 /* MAX 8998 regulator ids */
 enum {
@@ -83,8 +80,9 @@ struct max8998_adc_table_data {
 	int temperature;
 };
 struct max8998_charger_callbacks {
-	void (*set_cable)(struct max8998_charger_callbacks *ptr,
-		enum cable_type_t status);
+	void (*set_cable)(struct max8998_charger_callbacks *ptr, enum cable_type_t status);
+	bool (*set_esafe)(struct max8998_charger_callbacks *ptr, u8 esafe);
+	bool (*get_vdcin)(struct max8998_charger_callbacks *ptr);
 };
 
 /**
@@ -102,19 +100,27 @@ struct max8998_charger_data {
 
 /**
  * struct max8998_board - packages regulator init data
- * @num_regulators: number of regultors used
  * @regulators: array of defined regulators
+ * @num_regulators: number of regultors used
+ * @irq_base: base IRQ number for max8998, required for IRQs
+ * @ono: power onoff IRQ number for max8998
+ * @buck1_voltage_set[4]: BUCK1 voltage preset
+ * @buck2_voltage_set[2]: BUCK2 voltage preset
+ * @buck1_set1: BUCK1 gpio pin 1 to set output voltage
+ * @buck1_set2: BUCK1 gpio pin 2 to set output voltage
+ * @buck2_set3: BUCK2 gpio pin to set output voltage
  */
-
 struct max8998_platform_data {
-	int				num_regulators;
 	struct max8998_regulator_data	*regulators;
 	struct max8998_charger_data	*charger;
-	int				buck1_preload[MAX8998_N_DVSARM_REGS];
-	int				buck2_preload[MAX8998_N_DVSINT_REGS];
-	int				set1_gpio;
-	int				set2_gpio;
-	int				set3_gpio;
+	int				num_regulators;
+	int				irq_base;
+	int				ono;
+	int                             buck1_voltage_set[4];
+	int                             buck2_voltage_set[2];
+	int				buck1_set1;
+	int				buck1_set2;
+	int				buck2_set3;
 };
 
 #endif /*  __LINUX_MFD_MAX8998_H */
