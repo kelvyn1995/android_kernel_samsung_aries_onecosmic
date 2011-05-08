@@ -4876,8 +4876,12 @@ static struct platform_device *aries_devices[] __initdata = {
 	&s3c_device_hsmmc3,
 #endif
 
+#ifdef CONFIG_VIDEO_TV20
+        &s5p_device_tvout,
+#endif
 	&sec_device_battery,
 	&s3c_device_i2c10,
+	&sec_device_switch,  // samsung switch driver
 
 #ifdef CONFIG_S5PV210_POWER_DOMAIN
 	&s5pv210_pd_audio,
