@@ -251,4 +251,9 @@ config WIFI_CONTROL_FUNC
        bool "Enable WiFi control function abstraction"
        help
          Enables Power/Reset/Carddetect function abstraction
+
+config DVFS_LIMIT
+	bool "DVFS limit"
+	depends on CPU_FREQ
+	default n
 endif
