@@ -1,4 +1,6 @@
 /*
+ * Broadcom Ethernettype  protocol definitions
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +21,63 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: bcmeth.h,v 9.9.46.1 2008/11/20 00:51:20 Exp $
+ */
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
-
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
 
 
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
+#ifndef _BCMETH_H_
+#define _BCMETH_H_
 
-#endif 
+#ifndef _TYPEDEFS_H_
+#include <typedefs.h>
+#endif
+
+
+#include <packed_section_start.h>
+
+
+
+
+
+
+
+#define	BCMILCP_SUBTYPE_RATE		1
+#define	BCMILCP_SUBTYPE_LINK		2
+#define	BCMILCP_SUBTYPE_CSA		3
+#define	BCMILCP_SUBTYPE_LARQ		4
+#define BCMILCP_SUBTYPE_VENDOR		5
+#define	BCMILCP_SUBTYPE_FLH		17
+
+#define BCMILCP_SUBTYPE_VENDOR_LONG	32769
+#define BCMILCP_SUBTYPE_CERT		32770
+#define BCMILCP_SUBTYPE_SES		32771
+
+
+#define BCMILCP_BCM_SUBTYPE_RESERVED		0
+#define BCMILCP_BCM_SUBTYPE_EVENT		1
+#define BCMILCP_BCM_SUBTYPE_SES			2
+
+
+#define BCMILCP_BCM_SUBTYPE_DPT			4
+
+#define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
+#define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
+
+
+typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr
+{
+	uint16	subtype;	
+	uint16	length;
+	uint8	version;	
+	uint8	oui[3];		
+	
+	uint16	usr_subtype;
+} BWL_POST_PACKED_STRUCT bcmeth_hdr_t;
+
+
+
+#include <packed_section_end.h>
+
+#endif	

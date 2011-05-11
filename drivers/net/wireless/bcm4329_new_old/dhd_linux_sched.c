@@ -1,4 +1,6 @@
 /*
+ * Expose some of the kernel scheduler routines
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +21,18 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: dhd_linux_sched.c,v 1.1.34.1.6.1 2009/01/16 01:17:40 Exp $
+ */
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/sched.h>
+#include <linuxver.h>
 
-
-#ifndef _epivers_h_
-#define _epivers_h_
-
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
-
-
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
-
-#endif 
+int setScheduler(struct task_struct *p, int policy, struct sched_param *param)
+{
+	int rc = 0;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
+	rc = sched_setscheduler(p, policy, param);
+#endif /* LinuxVer */
+	return rc;
+}

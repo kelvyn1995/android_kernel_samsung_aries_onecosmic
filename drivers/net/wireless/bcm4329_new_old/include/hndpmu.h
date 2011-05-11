@@ -1,4 +1,6 @@
 /*
+ * HND SiliconBackplane PMU support.
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +21,14 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: hndpmu.h,v 13.14.4.3.4.3.8.7 2010/04/09 13:20:51 Exp $
+ */
+
+#ifndef _hndpmu_h_
+#define _hndpmu_h_
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
+extern void si_pmu_otp_power(si_t *sih, osl_t *osh, bool on);
+extern void si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength);
 
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
-
-
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
-
-#endif 
+#endif /* _hndpmu_h_ */

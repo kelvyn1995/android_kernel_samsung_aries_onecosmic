@@ -1,4 +1,7 @@
 /*
+ * Structure used by apps whose drivers access SDIO drivers.
+ * Pulled out separately so dhdu and wlu can both use it.
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +22,37 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: sdiovar.h,v 13.5.14.2.16.2 2009/12/08 22:34:21 Exp $
+ */
+
+#ifndef _sdiovar_h_
+#define _sdiovar_h_
+
+#include <typedefs.h>
+
+/* require default structure packing */
+#define BWL_DEFAULT_PACKING
+#include <packed_section_start.h>
+
+typedef struct sdreg {
+	int func;
+	int offset;
+	int value;
+} sdreg_t;
+
+/* Common msglevel constants */
+#define SDH_ERROR_VAL		0x0001	/* Error */
+#define SDH_TRACE_VAL		0x0002	/* Trace */
+#define SDH_INFO_VAL		0x0004	/* Info */
+#define SDH_DEBUG_VAL		0x0008	/* Debug */
+#define SDH_DATA_VAL		0x0010	/* Data */
+#define SDH_CTRL_VAL		0x0020	/* Control Regs */
+#define SDH_LOG_VAL		0x0040	/* Enable bcmlog */
+#define SDH_DMA_VAL		0x0080	/* DMA */
+
+#define NUM_PREV_TRANSACTIONS	16
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
+#include <packed_section_end.h>
 
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
-
-
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
-
-#endif 
+#endif /* _sdiovar_h_ */

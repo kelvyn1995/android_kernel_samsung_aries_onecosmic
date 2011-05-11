@@ -1,4 +1,6 @@
 /*
+ * OS Abstraction Layer
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -18,31 +20,36 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: osl.h,v 13.37.32.1 2008/11/20 00:51:15 Exp $
+ */
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
-
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
+#ifndef _osl_h_
+#define _osl_h_
 
 
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
+typedef struct osl_info osl_t;
+typedef struct osl_dmainfo osldma_t;
 
-#endif 
+#define OSL_PKTTAG_SZ	32 
+
+
+typedef void (*pktfree_cb_fn_t)(void *ctx, void *pkt, unsigned int status);
+
+#include <linux_osl.h>
+
+
+
+
+#define	SET_REG(osh, r, mask, val)	W_REG((osh), (r), ((R_REG((osh), r) & ~(mask)) | (val)))
+
+#ifndef AND_REG
+#define AND_REG(osh, r, v)		W_REG(osh, (r), R_REG(osh, r) & (v))
+#endif   
+
+#ifndef OR_REG
+#define OR_REG(osh, r, v)		W_REG(osh, (r), R_REG(osh, r) | (v))
+#endif   
+
+
+#endif	

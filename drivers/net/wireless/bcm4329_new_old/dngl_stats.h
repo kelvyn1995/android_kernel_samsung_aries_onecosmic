@@ -1,4 +1,7 @@
 /*
+ * Common stats definitions for clients of dongle
+ * ports
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +22,22 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: dngl_stats.h,v 1.2.140.3 2008/05/26 16:52:08 Exp $
+ */
 
+#ifndef _dngl_stats_h_
+#define _dngl_stats_h_
 
-#ifndef _epivers_h_
-#define _epivers_h_
+typedef struct {
+	unsigned long	rx_packets;		/* total packets received */
+	unsigned long	tx_packets;		/* total packets transmitted */
+	unsigned long	rx_bytes;		/* total bytes received */
+	unsigned long	tx_bytes;		/* total bytes transmitted */
+	unsigned long	rx_errors;		/* bad packets received */
+	unsigned long	tx_errors;		/* packet transmit problems */
+	unsigned long	rx_dropped;		/* packets dropped by dongle */
+	unsigned long	tx_dropped;		/* packets dropped by dongle */
+	unsigned long   multicast;      /* multicast packets received */
+} dngl_stats_t;
 
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
-
-
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
-
-#endif 
+#endif /* _dngl_stats_h_ */

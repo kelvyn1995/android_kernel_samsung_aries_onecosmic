@@ -1,4 +1,6 @@
 /*
+ * 802.1Q VLAN protocol definitions
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +21,43 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: vlan.h,v 9.4.196.2 2008/12/07 21:19:20 Exp $
+ */
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
+#ifndef _vlan_h_
+#define _vlan_h_
 
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
+#ifndef _TYPEDEFS_H_
+#include <typedefs.h>
+#endif
 
 
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
+#include <packed_section_start.h>
+
+#define VLAN_VID_MASK		0xfff	
+#define	VLAN_CFI_SHIFT		12	
+#define VLAN_PRI_SHIFT		13	
+
+#define VLAN_PRI_MASK		7	
+
+#define	VLAN_TAG_LEN		4
+#define	VLAN_TAG_OFFSET		(2 * ETHER_ADDR_LEN)	
+
+#define VLAN_TPID		0x8100	
+
+struct ethervlan_header {
+	uint8	ether_dhost[ETHER_ADDR_LEN];
+	uint8	ether_shost[ETHER_ADDR_LEN];
+	uint16	vlan_type;		
+	uint16	vlan_tag;		
+	uint16	ether_type;
+};
+
+#define	ETHERVLAN_HDR_LEN	(ETHER_HDR_LEN + VLAN_TAG_LEN)
+
+
+
+#include <packed_section_end.h>
 
 #endif 

@@ -1,4 +1,20 @@
 /*
+ * Declare directives for structure packing. No padding will be provided
+ * between the members of packed structures, and therefore, there is no
+ * guarantee that structure members will be aligned.
+ *
+ * Declaring packed structures is compiler specific. In order to handle all
+ * cases, packed structures should be delared as:
+ *
+ * #include <packed_section_start.h>
+ *
+ * typedef BWL_PRE_PACKED_STRUCT struct foobar_t {
+ *    some_struct_members;
+ * } BWL_POST_PACKED_STRUCT foobar_t;
+ *
+ * #include <packed_section_end.h>
+ *
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -18,31 +34,21 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: packed_section_end.h,v 1.1.6.3 2008/12/10 00:27:54 Exp $
+ */
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
-
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
 
 
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
+#ifdef BWL_PACKED_SECTION
+	#undef BWL_PACKED_SECTION
+#else
+	#error "BWL_PACKED_SECTION is NOT defined!"
+#endif
 
-#endif 
+
+
+
+
+#undef	BWL_PRE_PACKED_STRUCT
+#undef	BWL_POST_PACKED_STRUCT

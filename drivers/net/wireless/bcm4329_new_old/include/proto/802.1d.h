@@ -19,30 +19,31 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
+ * Fundamental types and constants relating to 802.1D
  *
-*/
+ * $Id: 802.1d.h,v 9.3 2007/04/10 21:33:06 Exp $
+ */
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
-
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
+#ifndef _802_1_D_
+#define _802_1_D_
 
 
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
+#define	PRIO_8021D_NONE		2	
+#define	PRIO_8021D_BK		1	
+#define	PRIO_8021D_BE		0	
+#define	PRIO_8021D_EE		3	
+#define	PRIO_8021D_CL		4	
+#define	PRIO_8021D_VI		5	
+#define	PRIO_8021D_VO		6	
+#define	PRIO_8021D_NC		7	
+#define	MAXPRIO			7	
+#define NUMPRIO			(MAXPRIO + 1)
+
+#define ALLPRIO		-1	
+
+
+#define PRIO2PREC(prio) \
+	(((prio) == PRIO_8021D_NONE || (prio) == PRIO_8021D_BE) ? ((prio^2)) : (prio))
 
 #endif 

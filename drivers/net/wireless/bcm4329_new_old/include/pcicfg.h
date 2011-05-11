@@ -1,4 +1,6 @@
 /*
+ * pcicfg.h: PCI configuration constants and structures.
+ *
  * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
@@ -19,30 +21,32 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in,v 13.25 2005/10/28 18:35:33 Exp $
- *
-*/
+ * $Id: pcicfg.h,v 1.41.12.3 2008/06/26 22:49:41 Exp $
+ */
 
 
-#ifndef _epivers_h_
-#define _epivers_h_
-
-#define	EPI_MAJOR_VERSION	4
-
-#define	EPI_MINOR_VERSION	218
-
-#define	EPI_RC_NUMBER		248
-
-#define	EPI_INCREMENTAL_NUMBER	20
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		4, 218, 248, 20
-
-#define	EPI_VERSION_NUM		0x04daf814
+#ifndef	_h_pcicfg_
+#define	_h_pcicfg_
 
 
-#define	EPI_VERSION_STR		"4.218.248.20"
-#define	EPI_ROUTER_VERSION_STR	"4.219.248.20"
+#define	PCI_CFG_VID		0
+#define	PCI_CFG_CMD		4
+#define	PCI_CFG_REV		8
+#define	PCI_CFG_BAR0		0x10
+#define	PCI_CFG_BAR1		0x14
+#define	PCI_BAR0_WIN		0x80	
+#define	PCI_INT_STATUS		0x90	
+#define	PCI_INT_MASK		0x94	
 
-#endif 
+#define PCIE_EXTCFG_OFFSET	0x100
+#define	PCI_BAR0_PCIREGS_OFFSET	(6 * 1024)	
+#define	PCI_BAR0_PCISBR_OFFSET	(4 * 1024)	
+
+#define PCI_BAR0_WINSZ		(16 * 1024)	
+
+
+#define	PCI_16KB0_PCIREGS_OFFSET (8 * 1024)	
+#define	PCI_16KB0_CCREGS_OFFSET	(12 * 1024)	
+#define PCI_16KBB0_WINSZ	(16 * 1024)	
+
+#endif	
