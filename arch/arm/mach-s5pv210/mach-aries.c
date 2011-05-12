@@ -4030,10 +4030,6 @@ static void config_sleep_gpio_table(int array_size, unsigned int (*gpio_table)[3
 	}
 }
 
-static void config_init_gpio(void)
-{
-	config_gpio_table(ARRAY_SIZE(initial_gpio_table), initial_gpio_table);
-}
 
 void config_sleep_gpio(void)
 {
