@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c,v 1.65.4.9.2.12.2.104.4.35 2010/11/17 03:13:21 Exp $
+ * $Id: dhd_linux.c,v 1.65.4.9.2.12.2.104.4.40 2011/02/03 19:55:18 Exp $
  */
 
 #ifdef CONFIG_WIFI_CONTROL_FUNC
@@ -45,7 +45,6 @@
 #include <linux/fs.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
-#include <linux/inetdevice.h>
 
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
@@ -200,12 +199,6 @@ void wifi_del_dev(void)
 }
 #endif /* defined(CUSTOMER_HW2) && defined(CONFIG_WIFI_CONTROL_FUNC) */
 
-static int dhd_device_event(struct notifier_block *this, unsigned long event,
-				void *ptr);
-
-static struct notifier_block dhd_notifier = {
-	.notifier_call = dhd_device_event
-};
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 #include <linux/suspend.h>
@@ -779,13 +772,13 @@ _dhd_set_multicast_list(dhd_info_t *dhd, int ifidx)
 	ASSERT(dhd && dhd->iflist[ifidx]);
 	dev = dhd->iflist[ifidx]->net;
 
-	netif_addr_lock_bh(dev);
+	NETIF_ADDR_LOCK(dev);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 	cnt = netdev_mc_count(dev);
 #else
 	cnt = dev->mc_count;
 #endif
-	netif_addr_unlock_bh(dev);
+	NETIF_ADDR_UNLOCK(dev);
 
 	/* Determine initial value of allmulti flag */
 	allmulti = (dev->flags & IFF_ALLMULTI) ? TRUE : FALSE;
@@ -805,7 +798,7 @@ _dhd_set_multicast_list(dhd_info_t *dhd, int ifidx)
 	memcpy(bufp, &cnt, sizeof(cnt));
 	bufp += sizeof(cnt);
 
-	netif_addr_lock_bh(dev);
+	NETIF_ADDR_LOCK(dev);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 	netdev_for_each_mc_addr(ha, dev) {
 		if (!cnt)
@@ -815,12 +808,12 @@ _dhd_set_multicast_list(dhd_info_t *dhd, int ifidx)
 		cnt--;
 	}
 #else
-	for (mclist = dev->mc_list;(mclist && (cnt > 0)); cnt--, mclist = mclist->next) {
+	for (mclist = dev->mc_list; (mclist && (cnt > 0)); cnt--, mclist = mclist->next) {
 		memcpy(bufp, (void *)mclist->dmi_addr, ETHER_ADDR_LEN);
 		bufp += ETHER_ADDR_LEN;
 	}
 #endif
-	netif_addr_unlock_bh(dev);
+	NETIF_ADDR_UNLOCK(dev);
 
 	memset(&ioc, 0, sizeof(ioc));
 	ioc.cmd = WLC_SET_VAR;
@@ -1920,7 +1913,7 @@ dhd_open(struct net_device *net)
 	ifidx = dhd_net2idx(dhd, net);
 	DHD_TRACE(("%s: ifidx %d\n", __FUNCTION__, ifidx));
 
-	if (ifidx >= 0 && (dhd->iflist[ifidx]) && (dhd->iflist[ifidx]->state == WLC_E_IF_DEL)) {
+	if ((dhd->iflist[ifidx]) && (dhd->iflist[ifidx]->state == WLC_E_IF_DEL)) {
 		DHD_ERROR(("%s: Error: called when IF already deleted\n", __FUNCTION__));
 		return -1;
 	}
@@ -2019,7 +2012,6 @@ dhd_del_if(dhd_info_t *dhd, int ifidx)
 	ASSERT(dhd->sysioc_pid >= 0);
 	up(&dhd->sysioc_sem);
 }
-
 
 dhd_pub_t *
 dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
@@ -2176,8 +2168,6 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->early_suspend.resume = dhd_late_resume;
 	register_early_suspend(&dhd->early_suspend);
 #endif
-
-	register_inetaddr_notifier(&dhd_notifier);
 
 	return &dhd->pub;
 
@@ -2339,48 +2329,6 @@ static struct net_device_ops dhd_ops_virt = {
 };
 #endif
 
-static int dhd_device_event(struct notifier_block *this, unsigned long event,
-				void *ptr)
-{
-	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
-	dhd_info_t *dhd;
-	dhd_pub_t *dhd_pub;
-
-	if (!ifa)
-		return NOTIFY_DONE;
-
-	dhd = *(dhd_info_t **)netdev_priv(ifa->ifa_dev->dev);
-	dhd_pub = &dhd->pub;
-
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
-	if (ifa->ifa_dev->dev->netdev_ops == &dhd_ops_pri) {
-#else
-	if (ifa->ifa_dev->dev->open == &dhd_open) {
-#endif
-		switch (event) {
-		case NETDEV_UP:
-			DHD_TRACE(("%s: [%s] Up IP: 0x%x\n",
-			    __FUNCTION__, ifa->ifa_label, ifa->ifa_address));
-
-			dhd_arp_cleanup(dhd_pub);
-			break;
-
-		case NETDEV_DOWN:
-			DHD_TRACE(("%s: [%s] Down IP: 0x%x\n",
-			    __FUNCTION__, ifa->ifa_label, ifa->ifa_address));
-
-			dhd_arp_cleanup(dhd_pub);
-			break;
-
-		default:
-			DHD_TRACE(("%s: [%s] Event: %lu\n",
-			    __FUNCTION__, ifa->ifa_label, event));
-			break;
-		}
-	}
-	return NOTIFY_DONE;
-}
-
 int
 dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 {
@@ -2454,7 +2402,6 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 	       dhd->pub.mac.octet[0], dhd->pub.mac.octet[1], dhd->pub.mac.octet[2],
 	       dhd->pub.mac.octet[3], dhd->pub.mac.octet[4], dhd->pub.mac.octet[5]);
 
-
 #if defined(CONFIG_WIRELESS_EXT)
 #if defined(CONFIG_FIRST_SCAN)
 #ifdef SOFTAP
@@ -2519,8 +2466,6 @@ dhd_detach(dhd_pub_t *dhdp)
 		if (dhd) {
 			dhd_if_t *ifp;
 			int i;
-
-			unregister_inetaddr_notifier(&dhd_notifier);
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 			if (dhd->early_suspend.suspend)
@@ -3109,11 +3054,12 @@ dhd_dev_pno_enable(struct net_device *dev,  int pfn_enabled)
 
 /* Linux wrapper to call common dhd_pno_set */
 int
-dhd_dev_pno_set(struct net_device *dev, wlc_ssid_t* ssids_local, int nssid, ushort  scan_fr)
+dhd_dev_pno_set(struct net_device *dev, wlc_ssid_t* ssids_local, int nssid,
+		ushort scan_fr, int pno_repeat, int pno_freq_expo_max)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 
-	return (dhd_pno_set(&dhd->pub, ssids_local, nssid, scan_fr));
+	return (dhd_pno_set(&dhd->pub, ssids_local, nssid, scan_fr, pno_repeat, pno_freq_expo_max));
 }
 
 /* Linux wrapper to get  pno status */
