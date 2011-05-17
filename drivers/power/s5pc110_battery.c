@@ -81,15 +81,18 @@
 
 #define ATTACH_USB	1
 #define ATTACH_TA	2
-#if defined (CONFIG_SAMSUNG_GALAXYS)
-#define HIGH_BLOCK_TEMP			510
-#define HIGH_RECOVER_TEMP		430
-#else
+
+#if defined (CONFIG_SAMSUNG_GALAXYS) || defined CONFIG_SAMSUNG_CAPTIVATE || defined (CONFIG_SAMSUNG_VIBRANT)
 #define HIGH_BLOCK_TEMP			630
 #define HIGH_RECOVER_TEMP		580
-#endif
 #define LOW_BLOCK_TEMP			0
 #define LOW_RECOVER_TEMP		20
+#else
+#define HIGH_BLOCK_TEMP			530
+#define HIGH_RECOVER_TEMP		480
+#define LOW_BLOCK_TEMP			40
+#define LOW_RECOVER_TEMP		70
+#endif
 
 struct battery_info {
 	u32 batt_temp;		/* Battery Temperature (C) from ADC */
