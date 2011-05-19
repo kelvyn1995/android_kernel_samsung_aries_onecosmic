@@ -843,7 +843,8 @@ static struct max8998_adc_table_data temper_table[] =  {
 	{ 220,	 690 },
 	{ 206,	 700 },	
 };
-#else if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
+#endif
+#if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
 static struct max8998_adc_table_data temper_table[] =  {
 	{  264,  650 },
 	{  275,  640 },
@@ -919,7 +920,8 @@ static struct max8998_adc_table_data temper_table[] =  {
 	{ 1658,  -60 },
 	{ 1667,  -70 }, 
 };
-#else if defined (CONFIG_SAMSUNG_VIBRANT)
+#endif
+#if defined (CONFIG_SAMSUNG_VIBRANT)
 static struct max8998_adc_table_data temper_table[] =  {
 	{ 1859,	-200 }, 
 	{ 1846,	-190 }, 

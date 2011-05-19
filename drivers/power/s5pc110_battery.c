@@ -87,12 +87,14 @@
   #define HIGH_RECOVER_TEMP		     430
   #define LOW_BLOCK_TEMP               0
   #define LOW_RECOVER_TEMP            10
-#else if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
+#endif
+#if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
   #define HIGH_BLOCK_TEMP            630
   #define HIGH_RECOVER_TEMP          580
   #define LOW_BLOCK_TEMP            (-40)
   #define LOW_RECOVER_TEMP            10
-#else if defined (CONFIG_SAMSUNG_VIBRANT)
+#endif
+#if defined (CONFIG_SAMSUNG_VIBRANT)
   #define HIGH_BLOCK_TEMP            510
   #define HIGH_RECOVER_TEMP          430
   #define LOW_BLOCK_TEMP            (-10)
