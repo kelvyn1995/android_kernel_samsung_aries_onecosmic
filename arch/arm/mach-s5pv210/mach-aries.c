@@ -304,57 +304,7 @@ static struct s3cfb_lcd s6e63m0 = {
 	},
 };
 
-static struct s3cfb_lcd nt35580 = {
-	.width = 480,
-	.height = 800,
-	.p_width = 52,
-	.p_height = 86,
-	.bpp = 24,
-	.freq = 68,
-	.timing = {
-		.h_fp = 16,
-		.h_bp = 16,
-		.h_sw = 2,
-		.v_fp = 28,
-		.v_fpe = 1,
-		.v_bp = 1,
-		.v_bpe = 1,
-		.v_sw = 2,
-	},
-	.polarity = {
-		.rise_vclk = 1,
-		.inv_hsync = 1,
-		.inv_vsync = 1,
-		.inv_vden = 1,
-	},
-};
-
-static struct s3cfb_lcd r61408 = {
-	.width = 480,
-	.height = 800,
-	.p_width = 52,
-	.p_height = 86,
-	.bpp = 24,
-	.freq = 68,
-	.timing = {
-		.h_fp = 100,
-		.h_bp = 2,
-		.h_sw = 2,
-		.v_fp = 8,
-		.v_fpe = 1,
-		.v_bp = 10,
-		.v_bpe = 1,
-		.v_sw = 2,
-	},
-	.polarity = {
-		.rise_vclk = 1,
-		.inv_hsync = 1,
-		.inv_vsync = 1,
-		.inv_vden = 0,
-	},
-};
-
-#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC0 (6144 * SZ_1K)
+#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC0 (12288 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC1 (9900 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC2 (12288 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_MFC0 (36864 * SZ_1K)
