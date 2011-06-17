@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c,v 1.5.6.8.2.6.6.69.4.25 2011/02/11 21:16:02 Exp $
+ * $Id: dhd_common.c,v 1.5.6.8.2.6.6.69.4.25 2011-02-11 21:16:02 Exp $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -1363,10 +1363,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #endif /* SET_RANDOM_MAC_SOFTAP */
 
 	/* Set Country code */
-	if (dhd->dhd_cspec.ccode[0] != 0) {
-		bcm_mkiovar("country", (char *)&dhd->dhd_cspec, \
-			sizeof(wl_country_t), iovbuf, sizeof(iovbuf));
-		if ((ret = dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf))) < 0) {
+	if (dhd->country_code[0] != 0) {
+		if (dhdcdc_set_ioctl(dhd, 0, WLC_SET_COUNTRY,
+			dhd->country_code, sizeof(dhd->country_code)) < 0) {
 			DHD_ERROR(("%s: country code setting failed\n", __FUNCTION__));
 		}
 	}
@@ -1987,12 +1986,12 @@ int dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled)
 	if ((pfn_enabled) && \
 		((ret = dhdcdc_set_ioctl(dhd, 0, WLC_GET_BSSID, \
 				 (char *)&bssid, ETHER_ADDR_LEN)) == BCME_NOTASSOCIATED)) {
-			DHD_TRACE(("%s pno enable called in disassoc mode\n", __FUNCTION__));
+		DHD_TRACE(("%s pno enable called in disassoc mode\n", __FUNCTION__));
 	}
-	else {
-			DHD_ERROR(("%s pno enable called in assoc mode ret=%d\n", \
-										__FUNCTION__, ret));
-			return ret;
+	else if (pfn_enabled) {
+		DHD_ERROR(("%s pno enable called in assoc mode ret=%d\n", \
+			__FUNCTION__, ret));
+		return ret;
 	}
 
 	/* Enable/disable PNO */
@@ -2087,6 +2086,8 @@ dhd_pno_set(dhd_pub_t *dhd, wlc_ssid_t* ssids_local, int nssid, ushort scan_fr, 
 
 		pfn_element.bss_type = htod32(DOT11_BSSTYPE_INFRASTRUCTURE);
 		pfn_element.auth = (DOT11_OPEN_SYSTEM);
+		pfn_element.wpa_auth = htod32(WPA_AUTH_PFN_ANY);
+		pfn_element.wsec = htod32(0);
 		pfn_element.infra = htod32(1);
 
 		memcpy((char *)pfn_element.ssid.SSID, ssids_local[i].SSID, ssids_local[i].SSID_len);
