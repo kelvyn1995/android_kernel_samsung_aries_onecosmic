@@ -1197,7 +1197,7 @@ static void touch_keypad_gpio_sleep(int onoff) {
 }
 
 static const int touch_keypad_code[] = {
-#if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
+#if defined (CONFIG_SAMSUNG_CAPTIVATE) || defined (CONFIG_SAMSUNG_GALAXYSB)
 	KEY_MENU,
 	KEY_BACK,
 	0,
@@ -1226,7 +1226,7 @@ static struct gpio_event_direct_entry aries_keypad_key_map[] = {
 		.gpio	= S5PV210_GPH2(6),
 		.code	= KEY_POWER,
 	},
-#if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
+#if defined (CONFIG_SAMSUNG_CAPTIVATE) || defined (CONFIG_SAMSUNG_GALAXYSB)
 	{
 		.gpio	= S5PV210_GPH3(5),
 		.code	= KEY_HOME,
@@ -3484,7 +3484,7 @@ static struct gpio_init_data aries_init_gpios[] = {
 		.pud	= S3C_GPIO_PULL_DOWN,
 		.drv	= S3C_GPIO_DRVSTR_1X,
 	}, {
-#if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB) /* HOME Key */
+#if defined (CONFIG_SAMSUNG_CAPTIVATE) || defined (CONFIG_SAMSUNG_GALAXYSB) /* HOME Key */
 		.num	= S5PV210_GPH3(5), // GPIO_MSENSE_IRQ
 		.cfg	= S3C_GPIO_SFN(0xF),
 		.val	= S3C_GPIO_SETPIN_NONE,
