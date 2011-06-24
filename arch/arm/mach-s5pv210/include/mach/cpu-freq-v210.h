@@ -38,7 +38,7 @@ enum perf_level {
 	L7,
 	L8,
 	L9,
-	L10
+	L10,
 	MAX_PERF_LEVEL = L10,
 };
 
