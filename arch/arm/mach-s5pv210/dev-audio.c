@@ -325,3 +325,16 @@ struct platform_device s5pv210_device_ac97 = {
 		.coherent_dma_mask = DMA_BIT_MASK(32),
 	},
 };
+
+#ifdef CONFIG_SND_S5P_RP
+static struct resource s5p_rp_resource[] = {
+};
+
+struct platform_device s5p_device_rp = {
+	.name           = "s5p-rp",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(s5p_rp_resource),
+	.resource       = s5p_rp_resource,
+};
+EXPORT_SYMBOL(s5p_device_rp);
+#endif

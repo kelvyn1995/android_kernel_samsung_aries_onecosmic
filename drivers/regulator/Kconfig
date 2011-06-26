@@ -100,14 +100,10 @@ config REGULATOR_MAX8925
 	help
 	  Say y here to support the voltage regulaltor of Maxim MAX8925 PMIC.
 
-config REGULATOR_MAX8893
-	tristate "Maxim MAX8893 Power Management IC"
-	help
-	  This driver controls a Maxim 8893 PMIC.
-
 config REGULATOR_MAX8998
 	tristate "Maxim 8998 voltage regulator"
-	depends on MFD_MAX8998
+	depends on I2C
+	default n
 	help
 	  This driver controls a Maxim 8998 voltage output regulator
 	  via I2C bus. The provided regulator is suitable for S3C6410

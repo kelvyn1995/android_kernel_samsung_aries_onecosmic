@@ -252,5 +252,12 @@
 #define S3C_PA_OTGSFR           S5PV210_PA_OTGSFR
 #define S3C_SZ_OTGSFR           S5PV210_SZ_OTGSFR
 
+/* ACE (Advanced Crypto Engine) */
+#define S5PV210_PA_ACE		(0xEA000000)
+#define S5P_PA_ACE		S5PV210_PA_ACE
+
+#define S5PV210_SZ_ACE		SZ_32K
+#define S5P_SZ_ACE		S5PV210_SZ_ACE
+
 /* end usb */
 #endif /* __ASM_ARCH_MAP_H */

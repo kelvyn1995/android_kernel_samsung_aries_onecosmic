@@ -73,6 +73,7 @@ obj-$(CONFIG_VIDEO_OV7670) 	+= ov7670.o
 obj-$(CONFIG_VIDEO_TCM825X) += tcm825x.o
 obj-$(CONFIG_VIDEO_TVEEPROM) += tveeprom.o
 obj-$(CONFIG_VIDEO_MT9V011) += mt9v011.o
+obj-$(CONFIG_VIDEO_CE147) += ce147.o
 
 obj-$(CONFIG_SOC_CAMERA_MT9M001)	+= mt9m001.o
 obj-$(CONFIG_SOC_CAMERA_MT9M111)	+= mt9m111.o
@@ -84,7 +85,6 @@ obj-$(CONFIG_SOC_CAMERA_OV9640)		+= ov9640.o
 obj-$(CONFIG_SOC_CAMERA_RJ54N1)		+= rj54n1cb0c.o
 obj-$(CONFIG_SOC_CAMERA_TW9910)		+= tw9910.o
 
-obj-$(CONFIG_VIDEO_CE147) += ce147.o
 obj-$(CONFIG_VIDEO_S5KA3DFX) 	+= s5ka3dfx.o
 obj-$(CONFIG_VIDEO_S5K4ECGX) 	+= s5k4ecgx.o
 # And now the v4l2 drivers:

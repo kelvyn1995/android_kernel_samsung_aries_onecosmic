@@ -54,13 +54,6 @@ config S5PV210_POWER_DOMAIN
 	help
 	  Enable S5PV210 power domain support.
 
-config S5PV210_CORESIGHT
-	bool "Coresight"
-	select OC_ETM
-	default y
-	help
-	  Support embedded trace cell
-
 # machine support
 
 config MACH_AQUILA
@@ -138,7 +131,6 @@ config MACH_HERRING
 	select ARCH_HAS_CPUFREQ
 	select S3C_DEV_HSMMC
 	select S3C_DEV_HSMMC1 if !S5PV210_SD_CH0_8BIT
-	select S3C_DEV_HSMMC2
 	select S3C_DEV_HSMMC3 if !S5PV210_SD_CH2_8BIT
 	select S5PV210_SETUP_SDHCI
 	select S5PV210_POWER_DOMAIN
@@ -157,75 +149,29 @@ config MACH_ARIES
 	select ARCH_HAS_CPUFREQ
 	select S3C_DEV_HSMMC
 	select S3C_DEV_HSMMC1 if !S5PV210_SD_CH0_8BIT
-        select S3C_DEV_HSMMC2 if !S5PV210_SD_CH2_8BIT
+	select S3C_DEV_HSMMC2
 	select S5PV210_SETUP_SDHCI
 	select S5PV210_POWER_DOMAIN
 	help
 	  Machine support for Aries
 
-if MACH_ARIES
-choice
-	prompt "Select phone Type"
-	
-config PHONE_ARIES
-	bool "select aries"
+config ARIES_EUR
+	bool "select S1 Europe"
 	depends on MACH_ARIES
 	help
-	 Select Aries Phone
+	Select S1 Europe
 
-config PHONE_ARIES_CDMA
-	bool "select aries cdma"
+config ARIES_NTT
+	bool "select S1 NTT"
 	depends on MACH_ARIES
 	help
-	 Select Aries Cdma Phone
+	Select S1 NTT
 
-config PHONE_CRESPO
-	bool "select crespo"
+config ARIES_LATONA
+	bool "select S1 LATONA"
 	depends on MACH_ARIES
 	help
-	 Select Crespo Phone
-
-endchoice
-choice
-	prompt "Select Device Type"
-
-config SAMSUNG_GALAXYS
-	bool "select GTI9000"
-	depends on MACH_ARIES
-	help
-	 Select Samsung Galaxy S GT-I9000
-
-config SAMSUNG_GALAXYSB
-	bool "select GTI9000B"
-	depends on MACH_ARIES
-	help
-	 Select Samsung Galaxy S GT-I9000B
-
-config SAMSUNG_CAPTIVATE
-	bool "select SGHI897"
-	depends on MACH_ARIES
-	help
-	 Select Samsung Captivate
-
-config SAMSUNG_VIBRANT
-	bool "select SGHT959"
-	depends on MACH_ARIES
-	help
-	 Select Samsung Vibrant
-
-config SAMSUNG_FASCINATE
-	bool "select SCHI500"
-	depends on MACH_ARIES
-	help
-	 Select Samsung Fascinate
-
-config SAMSUNG_EPIC
-	bool "select SPHD700"
-	depends on MACH_ARIES
-	help
-	 Select Samsung Epic 4G
-endchoice
-endif
+	Select S1 LATONA
 
 config S5PV210_SETUP_FB
 	bool
@@ -269,6 +215,11 @@ config S5PV210_SETUP_CSIS
 	help
 	  Common setup code for MIPI-CSIS
 
+config WIFI_CONTROL_FUNC
+	bool "Enable WiFi control function abstraction"
+	help
+	  Enables Power/Reset/Carddetect function abstraction
+
 config DVFS_LIMIT
 	bool "DVFS limit"
 	depends on CPU_FREQ
@@ -279,9 +230,4 @@ config CPU_DIDLE
 	depends on CPU_IDLE
 	default y
 
-
-config WIFI_CONTROL_FUNC
-       bool "Enable WiFi control function abstraction"
-       help
-         Enables Power/Reset/Carddetect function abstraction
 endif

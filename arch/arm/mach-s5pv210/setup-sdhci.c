@@ -29,6 +29,7 @@
 #include <asm/mach-types.h>
 
 /* clock sources for the mmc bus clock, order as for the ctrl2[5..4] */
+
 char *s5pv210_hsmmc_clksrcs[4] = {
 	[0] = "hsmmc",		/* HCLK */
 	[1] = "hsmmc",		/* HCLK */
@@ -47,7 +48,7 @@ void s5pv210_setup_sdhci0_cfg_gpio(struct platform_device *dev, int width)
 		for (gpio = S5PV210_GPG1(3); gpio <= S5PV210_GPG1(6); gpio++) {
 			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(3));
 			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
-			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_2X);
+			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_3X);
 		}
 
 	case 0:
@@ -59,19 +60,14 @@ void s5pv210_setup_sdhci0_cfg_gpio(struct platform_device *dev, int width)
 				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2));
 				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 			}
-			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_2X);
+			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_3X);
 		}
 		break;
 	default:
 		printk(KERN_ERR "Wrong SD/MMC bus width : %d\n", width);
 	}
 
-	if (machine_is_herring()) {
-		s3c_gpio_cfgpin(S5PV210_GPJ2(7), S3C_GPIO_OUTPUT);
-		s3c_gpio_setpull(S5PV210_GPJ2(7), S3C_GPIO_PULL_NONE);
-		gpio_set_value(S5PV210_GPJ2(7), 1);
-	}
-        if (machine_is_aries()) {
+	if (machine_is_herring() || machine_is_aries()) {
 		s3c_gpio_cfgpin(S5PV210_GPJ2(7), S3C_GPIO_OUTPUT);
 		s3c_gpio_setpull(S5PV210_GPJ2(7), S3C_GPIO_PULL_NONE);
 		gpio_set_value(S5PV210_GPJ2(7), 1);
@@ -93,7 +89,7 @@ void s5pv210_setup_sdhci1_cfg_gpio(struct platform_device *dev, int width)
 				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2));
 				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 			}
-			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_2X);
+			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_3X);
 		}
 		break;
 	default:
@@ -112,7 +108,7 @@ void s5pv210_setup_sdhci2_cfg_gpio(struct platform_device *dev, int width)
 		for (gpio = S5PV210_GPG3(3); gpio <= S5PV210_GPG3(6); gpio++) {
 			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(3));
 			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
-			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_2X);
+			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_3X);
 		}
 
 	case 0:
@@ -124,7 +120,7 @@ void s5pv210_setup_sdhci2_cfg_gpio(struct platform_device *dev, int width)
 				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2));
 				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 			}
-			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_2X);
+			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_3X);
 		}
 		break;
 	default:
@@ -147,7 +143,7 @@ void s5pv210_setup_sdhci3_cfg_gpio(struct platform_device *dev, int width)
 				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2));
 				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_UP);
 			}
-			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_2X);
+			s3c_gpio_set_drvstrength(gpio, S3C_GPIO_DRVSTR_3X);
 		}
 		break;
 	default:
@@ -283,11 +279,7 @@ unsigned int universal_sdhci2_detect_ext_cd(void)
 void universal_sdhci2_cfg_ext_cd(void)
 {
 	printk(KERN_DEBUG "Universal :SD Detect configuration\n");
-#if defined(CONFIG_SAMSUNG_CAPTIVATE) || defined(CONFIG_SAMSUNG_VIBRANT)
-    s3c_gpio_setpull(S5PV210_GPH3(4), S3C_GPIO_PULL_UP);
-#else
-    s3c_gpio_setpull(S5PV210_GPH3(4), S3C_GPIO_PULL_NONE);
-#endif
+	s3c_gpio_setpull(S5PV210_GPH3(4), S3C_GPIO_PULL_NONE);
 	set_irq_type(IRQ_EINT(28), IRQ_TYPE_EDGE_BOTH);
 }
 
@@ -301,10 +293,6 @@ static struct s3c_sdhci_platdata hsmmc0_platdata = {
 	.get_ro         = sdhci0_get_ro,
 #endif
 };
-
-#if defined(CONFIG_S3C_DEV_HSMMC1)
-static struct s3c_sdhci_platdata hsmmc1_platdata = { 0 };
-#endif
 
 #if defined(CONFIG_S3C_DEV_HSMMC2)
 static struct s3c_sdhci_platdata hsmmc2_platdata = {
@@ -324,18 +312,8 @@ void s3c_sdhci_set_platdata(void)
 #if defined(CONFIG_S3C_DEV_HSMMC)
 	s3c_sdhci0_set_platdata(&hsmmc0_platdata);
 #endif
-#if defined(CONFIG_S3C_DEV_HSMMC1)
-	if (machine_is_aries())
-		hsmmc1_platdata.built_in = 1;
-	s3c_sdhci1_set_platdata(&hsmmc1_platdata);
-#endif
 #if defined(CONFIG_S3C_DEV_HSMMC2)
-	if (machine_is_herring()) {
-		hsmmc2_platdata.ext_cd = IRQ_EINT(28);
-		hsmmc2_platdata.cfg_ext_cd = universal_sdhci2_cfg_ext_cd;
-		hsmmc2_platdata.detect_ext_cd = universal_sdhci2_detect_ext_cd;
-	}
-        if (machine_is_aries()) {
+	if (machine_is_herring() || machine_is_aries()) {
 		hsmmc2_platdata.ext_cd = IRQ_EINT(28);
 		hsmmc2_platdata.cfg_ext_cd = universal_sdhci2_cfg_ext_cd;
 		hsmmc2_platdata.detect_ext_cd = universal_sdhci2_detect_ext_cd;
@@ -344,10 +322,7 @@ void s3c_sdhci_set_platdata(void)
 	s3c_sdhci2_set_platdata(&hsmmc2_platdata);
 #endif
 #if defined(CONFIG_S3C_DEV_HSMMC3)
-	if (machine_is_herring())
-		hsmmc3_platdata.built_in = 1;
-	s3c_sdhci3_set_platdata(&hsmmc3_platdata);
-        if (machine_is_aries())
+	if (machine_is_herring() || machine_is_aries())
 		hsmmc3_platdata.built_in = 1;
 	s3c_sdhci3_set_platdata(&hsmmc3_platdata);
 #endif

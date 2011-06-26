@@ -12,12 +12,6 @@ menuconfig INPUT_MISC
 
 if INPUT_MISC
 
-config GYRO_K3G
-	tristate "K3G driver for s5pc11x"
-	default n
-	help
-	  This option enables gyro sensors using K3G driver
-
 config INPUT_88PM860X_ONKEY
 	tristate "88PM860x ONKEY support"
 	depends on MFD_88PM860X
@@ -61,13 +55,6 @@ config INPUT_AD714X_SPI
 config INPUT_BMA023
 	tristate "Bosch Sensortec BMA023 Acceleration Sensor"
 	depends on I2C
-
-config INPUT_KR3DH
-        depends on I2C
-        tristate "KR3DH driver for s5pc11x"
-        help
-          This option enables accelerometer sensors using kr3dh driver.
-          It is optimized for s5pc11x.
 
 config INPUT_YAS529
 	tristate "Yamaha YAS529 Geomagnetic Sensor"
@@ -452,6 +439,5 @@ config OPTICAL_GP2A
 	default n
 	help
 	  This option enables proximity & light sensors using gp2a driver.
-
 
 endif

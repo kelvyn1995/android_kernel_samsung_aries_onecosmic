@@ -24,8 +24,8 @@
 
 #include <plat/regs-iis.h>
 #include <plat/audio.h>
-
 #include <mach/dma.h>
+#include <mach/regs-clock.h>
 
 #include <mach/map.h>
 #include <mach/regs-audss.h>
@@ -54,24 +54,33 @@ static struct s3c_dma_params s3c64xx_i2s_pcm_stereo_in[MAX_I2SV3];
 static struct s3c_i2sv2_info s3c64xx_i2s[MAX_I2SV3];
 
 struct snd_soc_dai s3c64xx_i2s_dai[MAX_I2SV3];
-bool audio_clk_gated;	/* At first, clock & i2s0_pd is enabled in probe() */
 EXPORT_SYMBOL_GPL(s3c64xx_i2s_dai);
 
 /* For I2S Clock/Power Gating */
-static int tx_clk_enabled ;
-static int rx_clk_enabled ;
-static int reg_saved_ok ;
+static int tx_clk_enabled;
+static int rx_clk_enabled;
+static int suspended_by_pm;
+/* At first, clock & i2s0_pd is enabled in probe() */
+bool audio_pwr_stat = true;
+bool audio_clk_stat;
+bool audio_reg_saved;
+
+#ifdef CONFIG_SND_S5P_RP
+extern volatile int s5p_rp_is_opened;
+extern volatile int s5p_rp_is_running;
+#endif
 
 void dump_i2s(struct s3c_i2sv2_info *i2s)
 {
-	printk(KERN_INFO "IISMOD=0x%x..IISCON=0x%x..IISPSR=0x%x\
-			IISAHB=0x%x..\n" , readl(i2s->regs + S3C2412_IISMOD),
-			readl(i2s->regs + S3C2412_IISCON),
-			readl(i2s->regs + S3C2412_IISPSR),
-			readl(i2s->regs + S5P_IISAHB));
-	printk(KERN_INFO "..AUDSSRC=0x%x..AUDSSDIV=0x%x..\
-			AUDSSGATE=0x%x..\n" , readl(S5P_CLKSRC_AUDSS),
-			readl(S5P_CLKDIV_AUDSS), readl(S5P_CLKGATE_AUDSS));
+	pr_info("IISMOD=0x%x..IISCON=0x%x..IISPSR=0x%x..IISAHB=0x%x..\n",
+		readl(i2s->regs + S3C2412_IISMOD),
+		readl(i2s->regs + S3C2412_IISCON),
+		readl(i2s->regs + S3C2412_IISPSR),
+		readl(i2s->regs + S5P_IISAHB));
+	pr_info("..AUDSSRC=0x%x..AUDSSDIV=0x%x..AUDSSGATE=0x%x..\n",
+		readl(S5P_CLKSRC_AUDSS),
+		readl(S5P_CLKDIV_AUDSS),
+		readl(S5P_CLKGATE_AUDSS));
 }
 
 #define dump_reg(iis)
@@ -93,33 +102,22 @@ struct clk *s3c64xx_i2s_get_clock(struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(s3c64xx_i2s_get_clock);
 
-void s5p_i2s_set_clk_enabled(struct snd_soc_dai *dai, bool state)
+void s5p_i2s_set_pwr_enabled(struct snd_soc_dai *dai, bool state)
 {
 	struct s3c_i2sv2_info *i2s = to_info(dai);
 
-	pr_debug("..entering %s\n", __func__);
-
 	if (state) {
-		if (audio_clk_gated == 1)
-			regulator_enable(i2s->regulator);
+		if (audio_pwr_stat)
+			return;
 
-		if (dai->id == 0) {	/* I2S V5.1? */
-			clk_enable(i2s->iis_ipclk);
-			clk_enable(i2s->iis_clk);
-			clk_enable(i2s->iis_busclk);
-		}
-		audio_clk_gated = 0;
+		regulator_enable(i2s->regulator);
+		audio_pwr_stat = true;
 	} else {
-		if (dai->id == 0) {	/* I2S V5.1? */
-			clk_disable(i2s->iis_busclk);
-			clk_disable(i2s->iis_clk);
-			clk_disable(i2s->iis_ipclk);
-		}
-
-		if (audio_clk_gated == 0)
-			regulator_disable(i2s->regulator);
-
-		audio_clk_gated = 1;
+		if (!audio_pwr_stat)
+			return;
+		
+		regulator_disable(i2s->regulator);
+		audio_pwr_stat = false;
 	}
 }
 
@@ -132,7 +130,6 @@ static int s5p_i2s_wr_hw_params(struct snd_pcm_substream *substream,
 		s5p_i2s_hw_params(substream, params, dai);
 	else
 		s3c2412_i2s_hw_params(substream, params, dai);
-
 #else
 	s3c2412_i2s_hw_params(substream, params, dai);
 #endif
@@ -146,7 +143,6 @@ static int s5p_i2s_wr_trigger(struct snd_pcm_substream *substream,
 		s5p_i2s_trigger(substream, cmd, dai);
 	else
 		s3c2412_i2s_trigger(substream, cmd, dai);
-
 #else
 	s3c2412_i2s_trigger(substream, cmd, dai);
 #endif
@@ -162,7 +158,7 @@ static int s5p_i2s_set_fmt(struct snd_soc_dai *cpu_dai,
 	struct s3c_i2sv2_info *i2s = to_info(cpu_dai);
 	u32 iismod;
 
-	pr_debug("Entered %s\n", __func__);
+	pr_debug("iis: %s:\n", __func__);
 
 	iismod = readl(i2s->regs + S3C2412_IISMOD);
 	pr_debug("hw_params r: IISMOD: %x\n", iismod);
@@ -192,7 +188,7 @@ static int s5p_i2s_set_fmt(struct snd_soc_dai *cpu_dai,
 		iismod |= IISMOD_MASTER;
 		break;
 	default:
-		pr_err("unknwon master/slave format\n");
+		pr_err("%s: Unknwon master/slave format\n", __func__);
 		return -EINVAL;
 	}
 
@@ -212,7 +208,7 @@ static int s5p_i2s_set_fmt(struct snd_soc_dai *cpu_dai,
 		iismod |= S3C2412_IISMOD_SDF_IIS;
 		break;
 	default:
-		pr_err("Unknown data format\n");
+		pr_err("%s: Unknown data format\n", __func__);
 		return -EINVAL;
 	}
 
@@ -340,8 +336,7 @@ static int s5p_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
 		iismod |= clk_id;
 		clk = clk_get(NULL, "fout_epll");
 		if (IS_ERR(clk)) {
-			printk(KERN_ERR
-					"failed to get %s\n", "fout_epll");
+			pr_err("failed to get %s\n", "fout_epll");
 			return -EBUSY;
 		}
 		clk_disable(clk);
@@ -375,8 +370,7 @@ static int s5p_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
 
 		clk = clk_get(NULL, "fout_epll");
 		if (IS_ERR(clk)) {
-			printk(KERN_ERR
-				"failed to get %s\n", "fout_epll");
+			pr_err("failed to get %s\n", "fout_epll");
 				return -EBUSY;
 		}
 		clk_disable(clk);
@@ -398,104 +392,149 @@ static int s5p_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
 	return 0;
 }
 
-static int s5p_i2s_wr_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
+void s5p_i2s_set_clk_enabled(struct snd_soc_dai *dai, int state)
 {
 	struct s3c_i2sv2_info *i2s = to_info(dai);
-	u32 iiscon, iisfic;
+	/* I2S V5.1? */
+	if (state) {
+		if (audio_clk_stat)
+			return;
+		
+		if (dai->id == 0) {
+			clk_enable(i2s->iis_ipclk);
+			clk_enable(i2s->iis_clk);
+			clk_enable(i2s->iis_busclk);
+			audio_clk_stat = true;
+		}
+	} else {
+		if (!audio_clk_stat)
+			return;
+		
+		if (dai->id == 0) {
+			clk_disable(i2s->iis_busclk);
+			clk_disable(i2s->iis_clk);
+			clk_disable(i2s->iis_ipclk);
+			audio_clk_stat = false;
+		}
+	}
+}
 
-	if (!tx_clk_enabled && !rx_clk_enabled) {
+void s5p_i2s_do_resume(struct snd_soc_dai *dai)
+{
+	struct s3c_i2sv2_info *i2s = to_info(dai);
+
+	if (!audio_pwr_stat) {
+		s5p_i2s_set_pwr_enabled(dai, 1);
 		s5p_i2s_set_clk_enabled(dai, 1);
-		if (reg_saved_ok == true) {
-			/* Is this dai for I2Sv5? (I2S0) */
-			if (dai->id == 0) {
-				writel(i2s->suspend_audss_clksrc,
-						S5P_CLKSRC_AUDSS);
-				writel(i2s->suspend_audss_clkdiv,
-						S5P_CLKDIV_AUDSS);
-				writel(i2s->suspend_audss_clkgate,
-						S5P_CLKGATE_AUDSS);
-			}
+	} else {
+		s5p_i2s_set_clk_enabled(dai, 1);
+	}
+
+	if (audio_pwr_stat && audio_clk_stat) {
+		if (audio_reg_saved) {
 			writel(i2s->suspend_iismod, i2s->regs + S3C2412_IISMOD);
 			writel(i2s->suspend_iiscon, i2s->regs + S3C2412_IISCON);
 			writel(i2s->suspend_iispsr, i2s->regs + S3C2412_IISPSR);
+			if (s5p_rp_is_running) {
+				if (!(i2s->suspend_iisahb & (S5P_IISAHB_DMARLD | S5P_IISAHB_DMAEN))) {
+					pr_debug("iis: Warning!! Keep auto-reload & DMA En 0x%x\n", i2s->suspend_iisahb);
+					i2s->suspend_iisahb |= S5P_IISAHB_DMARLD | S5P_IISAHB_DMAEN;
+				}
+			} else {
+				if ((i2s->suspend_iisahb & S5P_IISAHB_DMARLD)) {
+					i2s->suspend_iisahb &= ~S5P_IISAHB_DMARLD;
+					pr_debug("iis: Warning!! Disable auto-reload 0x%x\n", i2s->suspend_iisahb);
+				}
+			}
 			writel(i2s->suspend_iisahb, i2s->regs + S5P_IISAHB);
-			reg_saved_ok = false;
-			pr_debug("I2S Audio Clock enabled and \
-					Registers restored...\n");
+
+			/* Is this dai for I2Sv5? (I2S0) */
+			if (dai->id == 0) {
+				writel(i2s->suspend_audss_clksrc,
+					S5P_CLKSRC_AUDSS);
+				writel(i2s->suspend_audss_clkdiv,
+					S5P_CLKDIV_AUDSS);
+				writel(i2s->suspend_audss_clkgate,
+					S5P_CLKGATE_AUDSS);
+			}
+			pr_debug("iis: Resume and registers restored.\n");
+			audio_reg_saved = false;
 		}
 	}
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		pr_debug("Inside..%s..for playback stream\n" , __func__);
-		tx_clk_enabled = 1;
-	} else {
-		pr_debug("Inside..%s..for capture stream\n" , __func__);
-		rx_clk_enabled = 1;
-		iiscon = readl(i2s->regs + S3C2412_IISCON);
-		if (iiscon & S3C2412_IISCON_RXDMA_ACTIVE)
-			return 0;
-
-		iisfic = readl(i2s->regs + S3C2412_IISFIC);
-		iisfic |= S3C2412_IISFIC_RXFLUSH;
-		writel(iisfic, i2s->regs + S3C2412_IISFIC);
-
-		do {
-			cpu_relax();
-		} while ((__raw_readl(i2s->regs + S3C2412_IISFIC) >> 0) & 0x7f);
-
-		iisfic = readl(i2s->regs + S3C2412_IISFIC);
-		iisfic &= ~S3C2412_IISFIC_RXFLUSH;
-		writel(iisfic, i2s->regs + S3C2412_IISFIC);
-	}
-
-#ifdef CONFIG_S5P_INTERNAL_DMA
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		s5p_i2s_startup(dai);
-#endif
-	dump_reg(i2s);
-	return 0;
 }
 
-static void s5p_i2s_wr_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
+void s5p_i2s_do_suspend(struct snd_soc_dai *dai)
 {
 	struct s3c_i2sv2_info *i2s = to_info(dai);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		pr_debug("Inside %s for playback stream\n" , __func__);
-		tx_clk_enabled = 0;
-	} else {
-		pr_debug("Inside..%s..for capture stream\n" , __func__);
-		if (readl(i2s->regs + S3C2412_IISCON) & (1<<26)) {
-			pr_debug("\n rx overflow int in %s\n" , __func__);
-			/* clear rxfifo overflow interrupt */
-			writel(readl(i2s->regs + S3C2412_IISCON) | (1<<26),
-					i2s->regs + S3C2412_IISCON);
-			/* flush rx */
-			writel(readl(i2s->regs + S3C2412_IISFIC) | (1<<7) ,
-					i2s->regs + S3C2412_IISFIC);
-		}
-		rx_clk_enabled = 0;
-	}
+#ifdef CONFIG_SND_S5P_RP
+	if (s5p_rp_is_running) 
+		return;
+#endif
 
-	if (!tx_clk_enabled && !rx_clk_enabled) {
+	if ((!audio_pwr_stat) && (!audio_clk_stat))
+		return;
+	
+	if (!audio_reg_saved) {
 		i2s->suspend_iismod = readl(i2s->regs + S3C2412_IISMOD);
 		i2s->suspend_iiscon = readl(i2s->regs + S3C2412_IISCON);
 		i2s->suspend_iispsr = readl(i2s->regs + S3C2412_IISPSR);
 		i2s->suspend_iisahb = readl(i2s->regs + S5P_IISAHB);
 		/* Is this dai for I2Sv5? (I2S0) */
 		if (dai->id == 0) {
-			i2s->suspend_audss_clksrc = readl(S5P_CLKSRC_AUDSS);
-			i2s->suspend_audss_clkdiv = readl(S5P_CLKDIV_AUDSS);
-			i2s->suspend_audss_clkgate = readl(S5P_CLKGATE_AUDSS);
+			i2s->suspend_audss_clksrc =
+				readl(S5P_CLKSRC_AUDSS);
+			i2s->suspend_audss_clkdiv =
+				readl(S5P_CLKDIV_AUDSS);
+			i2s->suspend_audss_clkgate =
+				readl(S5P_CLKGATE_AUDSS);
 		}
-		reg_saved_ok = true;
-		s5p_i2s_set_clk_enabled(dai, 0);
-		pr_debug("I2S Audio Clock disabled and Registers stored...\n");
-		pr_debug("Inside %s CLkGATE_IP3=0x%x..\n",
-				__func__ , __raw_readl(S5P_CLKGATE_IP3));
+		audio_reg_saved = true;
+		pr_debug("iis: Registers stored and suspend.\n");
 	}
+#ifdef CONFIG_SND_S5P_RP
+	if (!s5p_rp_is_running)
+#endif
+		s5p_i2s_set_clk_enabled(dai, 0);
+
+#ifdef CONFIG_SND_S5P_RP
+	if (!s5p_rp_is_opened)
+#endif
+		s5p_i2s_set_pwr_enabled(dai, 0);
+}
+
+static int s5p_i2s_wr_startup(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	pr_debug("iis: %s:\n", __func__);
+	s5p_i2s_do_resume(dai);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		tx_clk_enabled = 1;
+	else
+		rx_clk_enabled = 1;
+
+#ifdef CONFIG_S5P_INTERNAL_DMA
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		s5p_i2s_startup(dai);
+#endif
+
+	return 0;
+}
+
+static void s5p_i2s_wr_shutdown(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	pr_debug("iis: %s:\n", __func__);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		tx_clk_enabled = 0;
+	else
+		rx_clk_enabled = 0;
+
+	/* Tx/Rx both off? */
+	if (!tx_clk_enabled && !rx_clk_enabled)
+		s5p_i2s_do_suspend(dai);
 
 	return;
 }
@@ -524,56 +563,39 @@ static void s3c64xx_iis_dai_init(struct snd_soc_dai *dai)
 	dai->ops = &s3c64xx_i2s_dai_ops;
 }
 
+#ifdef CONFIG_SND_S5P_RP
+void s5p_i2s_do_suspend_for_rp(void)
+{
+	if (!tx_clk_enabled && !rx_clk_enabled)
+		s5p_i2s_do_suspend(s3c64xx_i2s_dai);
+}
+EXPORT_SYMBOL(s5p_i2s_do_suspend_for_rp);
+
+void s5p_i2s_do_resume_for_rp(void)
+{
+	s5p_i2s_do_resume(s3c64xx_i2s_dai);
+}
+EXPORT_SYMBOL(s5p_i2s_do_resume_for_rp);
+#endif
+
 /* suspend/resume are not necessary due to Clock/Pwer gating scheme... */
 #ifdef CONFIG_PM
 static int s5p_i2s_suspend(struct snd_soc_dai *dai)
 {
-	struct s3c_i2sv2_info *i2s = to_info(dai);
-
-	if (reg_saved_ok != true) {
-		dump_reg(i2s);
-		i2s->suspend_iismod = readl(i2s->regs + S3C2412_IISMOD);
-		i2s->suspend_iiscon = readl(i2s->regs + S3C2412_IISCON);
-		i2s->suspend_iispsr = readl(i2s->regs + S3C2412_IISPSR);
-		i2s->suspend_iisahb = readl(i2s->regs + S5P_IISAHB);
-		if (dai->id == 0) {
-			i2s->suspend_audss_clksrc = readl(S5P_CLKSRC_AUDSS);
-			i2s->suspend_audss_clkdiv = readl(S5P_CLKDIV_AUDSS);
-			i2s->suspend_audss_clkgate = readl(S5P_CLKGATE_AUDSS);
-		}
+	if (audio_pwr_stat || audio_clk_stat) {         /* Clk/Pwr is alive? */
+		suspended_by_pm = 1;
+		s5p_i2s_do_suspend(dai);
 	}
+
 	return 0;
 }
 
 static int s5p_i2s_resume(struct snd_soc_dai *dai)
 {
-	struct s3c_i2sv2_info *i2s = to_info(dai);
-
-	pr_info("dai_active %d, IISMOD %08x, IISCON %08x\n",
-			dai->active, i2s->suspend_iismod, i2s->suspend_iiscon);
-	if (reg_saved_ok != true) {
-		if (dai->id == 0) {
-			writel(i2s->suspend_audss_clksrc, S5P_CLKSRC_AUDSS);
-			writel(i2s->suspend_audss_clkdiv, S5P_CLKDIV_AUDSS);
-			writel(i2s->suspend_audss_clkgate, S5P_CLKGATE_AUDSS);
-			pr_info("Inside %s..@%d\n" , __func__ , __LINE__);
-		}
-		writel(i2s->suspend_iiscon, i2s->regs + S3C2412_IISCON);
-		writel(i2s->suspend_iismod, i2s->regs + S3C2412_IISMOD);
-		writel(i2s->suspend_iispsr, i2s->regs + S3C2412_IISPSR);
-		writel(i2s->suspend_iisahb, i2s->regs + S5P_IISAHB);
+	if (suspended_by_pm) {
+		suspended_by_pm = 0;
+		s5p_i2s_do_resume(dai);
 	}
-	return 0;
-	/* Is this dai for I2Sv5? */
-	if (dai->id == 0)
-		writel(i2s->suspend_audss_clksrc, S5P_CLKSRC_AUDSS);
-
-	writel(S3C2412_IISFIC_RXFLUSH | S3C2412_IISFIC_TXFLUSH,
-			i2s->regs + S3C2412_IISFIC);
-
-	ndelay(250);
-	writel(0x0, i2s->regs + S3C2412_IISFIC);
-
 	return 0;
 }
 #else
@@ -717,7 +739,7 @@ static __devinit int s3c64xx_iis_dev_probe(struct platform_device *pdev)
 	clk_enable(i2s->sclk_audio);
 
 	/* When I2S V5.1 used, initialize audio subsystem clock */
-	/* CLKMUX_ASS */
+	/* CLKMUX_ASS selected for EPLL */
 	if (pdev->id == 0) {
 		mout_audss = clk_get(NULL, "mout_audss");
 		if (IS_ERR(mout_audss)) {
@@ -725,7 +747,8 @@ static __devinit int s3c64xx_iis_dev_probe(struct platform_device *pdev)
 			goto err1;
 		}
 		clk_set_parent(mout_audss, fout_epll);
-		/*MUX-I2SA*/
+
+		/* MUX-I2SA */
 		i2s->iis_clk = clk_get(&pdev->dev, "audio-bus");
 		if (IS_ERR(i2s->iis_clk)) {
 			dev_err(&pdev->dev, "failed to get audio-bus\n");
@@ -733,10 +756,11 @@ static __devinit int s3c64xx_iis_dev_probe(struct platform_device *pdev)
 			goto err2;
 		}
 		clk_set_parent(i2s->iis_clk, mout_audss);
-		/*getting AUDIO BUS CLK*/
+
+		/* MUX-BUS CLK */
 		i2s->iis_busclk = clk_get(NULL, "dout_audio_bus_clk_i2s");
 		if (IS_ERR(i2s->iis_busclk)) {
-			printk(KERN_ERR "failed to get audss_hclk\n");
+			pr_err("failed to get audss_hclk\n");
 			goto err3;
 		}
 		i2s->iis_ipclk = clk_get(&pdev->dev, "i2s_v50");
@@ -756,7 +780,7 @@ static __devinit int s3c64xx_iis_dev_probe(struct platform_device *pdev)
 	iismod |= S3C2412_IISMOD_MODE_TXRX;
 	writel(iismod, i2s->regs + S3C2412_IISMOD);
 
-#ifdef CONFIG_S5P_INTERNAL_DMA
+#if defined(CONFIG_S5P_INTERNAL_DMA) || defined(CONFIG_SND_S5P_RP)
 	s5p_i2s_sec_init(i2s->regs, base);
 #endif
 

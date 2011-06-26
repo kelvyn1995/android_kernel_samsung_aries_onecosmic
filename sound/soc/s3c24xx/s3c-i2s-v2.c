@@ -54,6 +54,11 @@
 
 #define S3C2412_I2S_DEBUG_CON 0
 
+#ifdef CONFIG_SND_S5P_RP
+/* s5p_rp_is_running is from s5p_rp driver */
+extern volatile int s5p_rp_is_running;
+#endif
+
 static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
 {
 	return cpu_dai->private_data;
@@ -140,17 +145,36 @@ static void s3c2412_snd_txctrl(struct s3c_i2sv2_info *i2s, int on)
 			writel(con, regs + S3C2412_IISCON);
 			return;
 		}
+#ifdef CONFIG_SND_S5P_RP
+		if (!s5p_rp_is_running)			/* Check RP is running */
+			con |=  S3C2412_IISCON_TXCH_PAUSE;
+#else
 		con |=  S3C2412_IISCON_TXCH_PAUSE;
+#endif
 
 		switch (mod & S3C2412_IISMOD_MODE_MASK) {
 		case S3C2412_IISMOD_MODE_TXRX:
+#ifdef CONFIG_SND_S5P_RP
+			if (!s5p_rp_is_running) {	/* Check RP is running */
+				mod &= ~S3C2412_IISMOD_MODE_MASK;
+				mod |= S3C2412_IISMOD_MODE_RXONLY;
+			}
+#else
 			mod &= ~S3C2412_IISMOD_MODE_MASK;
 			mod |= S3C2412_IISMOD_MODE_RXONLY;
+#endif
 			break;
 
 		case S3C2412_IISMOD_MODE_TXONLY:
+#ifdef CONFIG_SND_S5P_RP
+			if (!s5p_rp_is_running) {	/* Check RP is running */
+				mod &= ~S3C2412_IISMOD_MODE_MASK;
+				con &= ~S3C2412_IISCON_IIS_ACTIVE;
+			}
+#else
 			mod &= ~S3C2412_IISMOD_MODE_MASK;
 			con &= ~S3C2412_IISCON_IIS_ACTIVE;
+#endif
 			break;
 
 		default:
@@ -404,6 +428,13 @@ int s3c2412_i2s_hw_params(struct snd_pcm_substream *substream,
 	/* Set the IISMOD[25:24](BLC_P) to same value */
 	iismod &= ~(S5P_IISMOD_BLCPMASK);
 	iismod |= ((iismod & S3C64XX_IISMOD_BLC_MASK) << 11);
+
+#ifdef CONFIG_SND_S5P_RP
+	/* ULP Audio use secondary port */
+	/* Set the IISMOD[27:26](BLC_S) to same value */
+	iismod &= ~(S5P_IISMOD_BLCSMASK);
+	iismod |= ((iismod & S3C64XX_IISMOD_BLC_MASK) << 13);
+#endif
 #endif
 
 	writel(iismod, i2s->regs + S3C2412_IISMOD);

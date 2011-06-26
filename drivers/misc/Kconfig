@@ -330,14 +330,6 @@ config SENSORS_TSL2550
 	  This driver can also be built as a module.  If so, the module
 	  will be called tsl2550.
 
-config SENSORS_AK8973
-	tristate "AK8973 magnetometer support"
-	default n
-	depends on I2C
-	help
-	  If you say yes here you get support for Asahi Kasei's
-	  orientation sensor AK8973.
-
 config SENSORS_AK8975
 	tristate "AK8975 compass support"
 	default n
@@ -345,22 +337,6 @@ config SENSORS_AK8975
 	help
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
-
-config SENSORS_YAMAHA_MS3C
-	tristate "YAMAHA MS3C compass support"
-	default n
-	depends on I2C
-	help
-	  If you say yes here you get support for Yamaha's
-	  magnetic sensor MS3C.
-	  
-
-config SENSORS_KR3DM
-	tristate "KR3DM acceleration sensor support"
-	depends on I2C
-	default n
-	help
-	  Driver for STMicro KR3DM accelerometer - digital motion sensor.
 
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
@@ -447,6 +423,14 @@ config SAMSUNG_JACK
 
 	 If unsure, say N.
 
+config SAMSUNG_FM_SI4709
+	tristate "SI4709 FM radio driver for Samsung devices"
+	default m
+	---help---
+	 This is SI4709 FM radio driver for Samsung devices.
+
+	 If unsure, say N.
+
 config USB_SWITCH_FSA9480
 	tristate "FSA9480 USB Switch"
 	depends on I2C
@@ -463,20 +447,23 @@ source "drivers/misc/iwmc3200top/Kconfig"
 
 config SAMSUNG_MODEMCTL
 	bool "Samsung Modem Control/IO Driver"
-	
-config MODEM_HAS_CRAPPY_BOOTLOADER
-	bool "Samsung Modem Control/IO Driver Bootloader is crap"
-	depends on SAMSUNG_MODEMCTL
-	help
-	  If you use the Samsung Modem Control driver on the older
-	  SGS devices the bootloader won't tell you that it finished
-	  loading. This is a workaround for that, it only waits some 
-	  time and tries to to continue.
+
+menuconfig VIBETONZ
+        tristate "Vibetonz"
+        default m
+        help
+          Say Y to enable Vibetonz support.
 
 config PN544
 	bool "NXP PN544 NFC Controller Driver"
 	default n
 	help
 	  NXP PN544 Near Field Communication controller support.
+
+config LEVEL
+	tristate "level_debug"
+	default n
+	help
+	  Say Y to enable debug level I/F support.
 
 endif # MISC_DEVICES

@@ -17,7 +17,6 @@
 #include <mach/cpu-freq-v210.h>
 #endif
 
-
 #include "power.h"
 
 DEFINE_MUTEX(pm_mutex);
@@ -250,6 +249,7 @@ power_attr(wake_lock);
 power_attr(wake_unlock);
 #endif
 
+
 #ifdef CONFIG_DVFS_LIMIT
 //extern int g_dbs_timer_started;
 static int dvfsctrl_locked = 0;
@@ -328,8 +328,6 @@ static ssize_t dvfslock_ctrl_store(struct kobject *kobj, struct kobj_attribute *
 
 power_attr(dvfslock_ctrl);
 #endif
-
-
 
 static struct attribute * g[] = {
 	&state_attr.attr,

@@ -21,7 +21,6 @@
 #include <linux/suspend.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
-#include <linux/platform_device.h>
 #include <asm/system.h>
 
 #include <mach/map.h>
@@ -73,13 +72,12 @@ static unsigned int g_dvfslockval[DVFS_LOCK_TOKEN_NUM];
 //static DEFINE_MUTEX(dvfs_high_lock);
 #endif
 
-
 const unsigned long arm_volt_max = 1350000;
 const unsigned long int_volt_max = 1250000;
 
 static struct s5pv210_dvs_conf dvs_conf[] = {
 	[L0] = {
-		.arm_volt   = 1250000,
+		.arm_volt   = 1275000,
 		.int_volt   = 1100000,
 	},
 	[L1] = {
@@ -387,7 +385,6 @@ void s5pv210_unlock_dvfs_high_level(unsigned int nToken)
 EXPORT_SYMBOL(s5pv210_unlock_dvfs_high_level);
 #endif
 
-
 static int no_cpufreq_access;
 /*
  * s5pv210_cpufreq_target: relation has an additional symantics other than
@@ -441,7 +438,7 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 		ret = -EINVAL;
 		goto out;
 	}
-	
+
 #ifdef CONFIG_DVFS_LIMIT
 	if (g_dvfs_high_lock_token) {
 		if (index > g_dvfs_high_lock_limit)
@@ -790,11 +787,6 @@ static int s5pv210_cpufreq_notifier_event(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
-static struct freq_attr *s5pv210_cpufreq_attr[] = {
-	&cpufreq_freq_attr_scaling_available_freqs,
-	NULL,
-};
-
 static struct cpufreq_driver s5pv210_cpufreq_driver = {
 	.flags		= CPUFREQ_STICKY,
 	.verify		= s5pv210_cpufreq_verify_speed,
@@ -802,7 +794,6 @@ static struct cpufreq_driver s5pv210_cpufreq_driver = {
 	.get		= s5pv210_cpufreq_getspeed,
 	.init		= s5pv210_cpufreq_driver_init,
 	.name		= "s5pv210",
-	.attr		= s5pv210_cpufreq_attr,
 #ifdef CONFIG_PM
 	.suspend	= s5pv210_cpufreq_suspend,
 	.resume		= s5pv210_cpufreq_resume,
@@ -813,25 +804,8 @@ static struct notifier_block s5pv210_cpufreq_notifier = {
 	.notifier_call = s5pv210_cpufreq_notifier_event,
 };
 
-static int __init s5pv210_cpufreq_probe(struct platform_device *pdev)
+static int __init s5pv210_cpufreq_init(void)
 {
-	struct s5pv210_cpufreq_data *pdata = dev_get_platdata(&pdev->dev);
-	int i, j;
-
-	if (pdata && pdata->size) {
-		for (i = 0; i < pdata->size; i++) {
-			j = 0;
-			while (freq_table[j].frequency != CPUFREQ_TABLE_END) {
-				if (freq_table[j].frequency == pdata->volt[i].freq) {
-					dvs_conf[j].arm_volt = pdata->volt[i].varm;
-					dvs_conf[j].int_volt = pdata->volt[i].vint;
-					break;
-				}
-				j++;
-			}
-		}
-	}
-
 #ifdef CONFIG_REGULATOR
 	arm_regulator = regulator_get_exclusive(NULL, "vddarm");
 	if (IS_ERR(arm_regulator)) {
@@ -852,25 +826,6 @@ finish:
 	register_pm_notifier(&s5pv210_cpufreq_notifier);
 
 	return cpufreq_register_driver(&s5pv210_cpufreq_driver);
-}
-
-static struct platform_driver s5pv210_cpufreq_drv = {
-	.probe		= s5pv210_cpufreq_probe,
-	.driver		= {
-		.owner	= THIS_MODULE,
-		.name	= "s5pv210-cpufreq",
-	},
-};
-
-static int __init s5pv210_cpufreq_init(void)
-{
-	int ret;
-
-	ret = platform_driver_register(&s5pv210_cpufreq_drv);
-	if (!ret)
-		pr_info("%s: S5PV210 cpu-freq driver\n", __func__);
-
-	return ret;
 }
 
 late_initcall(s5pv210_cpufreq_init);

@@ -235,13 +235,10 @@ static int modem_pipe_send(struct m_pipe *pipe, struct modem_io *io)
 		MODEM_COUNT(pipe->mc, pipe_tx_delayed);
 		modem_release_mmio(pipe->mc, 0);
 
-		ret = wait_event_interruptible_timeout(
-			pipe->mc->wq,
-			(pipe->tx->avail >= size) || modem_offline(pipe->mc),
-			5 * HZ);
-		if (ret == 0)
-			return -ENODEV;
-		if (ret < 0)
+		ret = wait_event_interruptible(pipe->mc->wq,
+					       (pipe->tx->avail >= size)
+					       || modem_offline(pipe->mc));
+		if (ret)
 			return ret;
 	}
 }
@@ -347,12 +344,7 @@ static void handle_raw_rx(struct modemctl *mc)
 		if (fifo_skip(&mc->raw_rx, 1) != 1)
 			goto purge_raw_fifo;
 
-		/* Get the ethertype from the version in the IP header. */
-		if (skb->data[0] >> 4 == 6)
-			skb->protocol = __constant_htons(ETH_P_IPV6);
-		else
-			skb->protocol = __constant_htons(ETH_P_IP);
-
+		skb->protocol = __constant_htons(ETH_P_IP);
 		dev->stats.rx_packets++;
 		dev->stats.rx_bytes += skb->len;
 

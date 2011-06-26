@@ -1,4 +1,4 @@
-/* linux/drivers/serial/samsuing.c
+/* linux/drivers/serial/samsung.c
  *
  * Driver core for Samsung SoC onboard UARTs.
  *
@@ -354,6 +354,8 @@ static unsigned int s3c24xx_serial_get_mctrl(struct uart_port *port)
 static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	/* todo - possibly remove AFC and do manual CTS */
+#if 1
+	if(port->line == 0) {
 	unsigned int umcon = 0;
 	umcon = rd_regl(port, S3C2410_UMCON);
 	if (mctrl & TIOCM_RTS)
@@ -362,6 +364,8 @@ static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		umcon &= ~S3C2410_UMCOM_AFC;
 
 	wr_regl(port, S3C2410_UMCON, umcon);
+	}
+#endif
 }
 
 static void s3c24xx_serial_break_ctl(struct uart_port *port, int break_state)

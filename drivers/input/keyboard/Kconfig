@@ -435,10 +435,15 @@ config KEYPAD_CYPRESS_TOUCH
 	  To compile this driver as a module, choose M here: the
 	  module will be called cypress-touchkey.
 
-config KEYPAD_CYPRESS_TOUCH_HAS_LEGACY_KEYCODE
-	tristate "Cypress touch legacy keycode support"
-	depends on KEYPAD_CYPRESS_TOUCH
+config KEYPAD_S3C
+	tristate "S3C keypad support"
+	depends on CPU_S5PC100 || CPU_S5PC110 || CPU_S5P6442 || CPU_S5PV210
 	default n
 	help
-	 Say Y here if your device uses legacy keycodes.
+	  Say Y here if you want to use the S3C SMDK keypad.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called s3c-keypad.
+
 endif
+

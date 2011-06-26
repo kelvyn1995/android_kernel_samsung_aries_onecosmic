@@ -30,6 +30,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <mach/param.h>
 
 /* FSA9480 I2C registers */
 #define FSA9480_REG_DEVID		0x01
@@ -112,6 +113,8 @@ struct fsa9480_usbsw {
 	int				dev2;
 	int				mansw;
 };
+
+static struct fsa9480_usbsw *local_usbsw;
 
 static ssize_t fsa9480_show_control(struct device *dev,
 				   struct device_attribute *attr,
@@ -235,6 +238,53 @@ static const struct attribute_group fsa9480_group = {
 	.attrs = fsa9480_attributes,
 };
 
+void fsa9480_manual_switching(int path)
+{
+	struct i2c_client *client = local_usbsw->client;
+	unsigned int value;
+	unsigned int data = 0;
+	int ret;
+
+	value = i2c_smbus_read_byte_data(client, FSA9480_REG_CTRL);
+	if (value < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+
+	if ((value & ~CON_MANUAL_SW) !=
+			(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
+		return;
+
+	if (path == SWITCH_PORT_VAUDIO) {
+		data = SW_VAUDIO;
+		value &= ~CON_MANUAL_SW;
+	} else if (path ==  SWITCH_PORT_UART) {
+		data = SW_UART;
+		value &= ~CON_MANUAL_SW;
+	} else if (path ==  SWITCH_PORT_AUDIO) {
+		data = SW_AUDIO;
+		value &= ~CON_MANUAL_SW;
+	} else if (path ==  SWITCH_PORT_USB) {
+		data = SW_DHOST;
+		value &= ~CON_MANUAL_SW;
+	} else if (path ==  SWITCH_PORT_AUTO) {
+		data = SW_AUTO;
+		value |= CON_MANUAL_SW;
+	} else {
+		printk("%s: wrong path (%d)\n", __func__, path);
+		return;
+	}
+
+	local_usbsw->mansw = data;
+
+	ret = i2c_smbus_write_byte_data(client, FSA9480_REG_MANSW1, data);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+	ret = i2c_smbus_write_byte_data(client, FSA9480_REG_CTRL, value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+}
+EXPORT_SYMBOL(fsa9480_manual_switching);
 
 static void fsa9480_detect_dev(struct fsa9480_usbsw *usbsw)
 {
@@ -291,7 +341,7 @@ static void fsa9480_detect_dev(struct fsa9480_usbsw *usbsw)
 				pdata->deskdock_cb(FSA9480_ATTACHED);
 
 			ret = i2c_smbus_write_byte_data(client,
-					FSA9480_REG_MANSW1, SW_DHOST);
+					FSA9480_REG_MANSW1, SW_VAUDIO);
 			if (ret < 0)
 				dev_err(&client->dev,
 					"%s: err %d\n", __func__, ret);
@@ -303,7 +353,7 @@ static void fsa9480_detect_dev(struct fsa9480_usbsw *usbsw)
 					"%s: err %d\n", __func__, ret);
 
 			ret = i2c_smbus_write_byte_data(client,
-				FSA9480_REG_CTRL, ret & ~CON_MANUAL_SW);
+					FSA9480_REG_CTRL, ret & ~CON_MANUAL_SW);
 			if (ret < 0)
 				dev_err(&client->dev,
 					"%s: err %d\n", __func__, ret);
@@ -461,6 +511,8 @@ static int __devinit fsa9480_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, usbsw);
 
+	local_usbsw = usbsw;  // temp
+
 	if (usbsw->pdata->cfg_gpio)
 		usbsw->pdata->cfg_gpio();
 
@@ -482,6 +534,10 @@ static int __devinit fsa9480_probe(struct i2c_client *client,
 
 	/* device detection */
 	fsa9480_detect_dev(usbsw);
+
+	// set fsa9480 init flag.
+	if (usbsw->pdata->set_init_flag)
+		usbsw->pdata->set_init_flag();
 
 	return 0;
 
@@ -510,24 +566,9 @@ static int __devexit fsa9480_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM
-static int fsa9480_suspend(struct i2c_client *client)
-{
-	struct fsa9480_usbsw *usbsw = i2c_get_clientdata(client);
-    int ret;
-
-	/* mask interrupts */
-	ret = i2c_smbus_write_word_data(client, FSA9480_REG_INT1_MASK, 0x1fff);
-
-	return 0;
-}
-
 static int fsa9480_resume(struct i2c_client *client)
 {
 	struct fsa9480_usbsw *usbsw = i2c_get_clientdata(client);
-    int ret;
-
-	/* unmask attach/detach only */
-	ret = i2c_smbus_write_word_data(client, FSA9480_REG_INT1_MASK, 0x1ffc);
 
 	/* device detection */
 	fsa9480_detect_dev(usbsw);
@@ -554,7 +595,6 @@ static struct i2c_driver fsa9480_i2c_driver = {
 	},
 	.probe = fsa9480_probe,
 	.remove = __devexit_p(fsa9480_remove),
-    .suspend = fsa9480_suspend,
 	.resume = fsa9480_resume,
 	.id_table = fsa9480_id,
 };

@@ -22,7 +22,8 @@
  */
 
 #define GINTMSK_INIT	(INT_OUT_EP|INT_IN_EP|INT_RESUME|INT_ENUMDONE|INT_RESET|INT_SUSPEND)
-#define DOEPMSK_INIT	(CTRL_OUT_EP_SETUP_PHASE_DONE|AHB_ERROR|TRANSFER_DONE)
+#define DOEPMSK_INIT	(CTRL_OUT_EP_SETUP_PHASE_DONE | AHB_ERROR | BACK2BACK_SETUP_RECEIVED |\
+				TRANSFER_DONE)
 #define DIEPMSK_INIT	(NON_ISO_IN_EP_TIMEOUT|AHB_ERROR|TRANSFER_DONE)
 #define GAHBCFG_INIT	(PTXFE_HALF|NPTXFE_HALF|MODE_DMA|BURST_INCR4|GBL_INT_UNMASK)
 
@@ -154,6 +155,12 @@ static int setdma_tx(struct s3c_ep *ep, struct s3c_request *req)
 		pktcnt = (length - 1)/(ep->ep.maxpacket) + 1;
 
 #ifdef DED_TX_FIFO
+	/* Flush the endpoint's Tx FIFO */
+	writel(ep_num<<6, S3C_UDC_OTG_GRSTCTL);
+	writel((ep_num<<6)|0x20, S3C_UDC_OTG_GRSTCTL);
+	while (readl(S3C_UDC_OTG_GRSTCTL) & 0x20)
+		;
+
 	/* Write the FIFO number to be used for this endpoint */
 	ctrl = readl(S3C_UDC_OTG_DIEPCTL(ep_num));
 	ctrl &= ~DEPCTL_TXFNUM_MASK;;
@@ -165,6 +172,12 @@ static int setdma_tx(struct s3c_ep *ep, struct s3c_request *req)
 	writel((pktcnt<<19)|(length<<0), S3C_UDC_OTG_DIEPTSIZ(ep_num));
 	ctrl = readl(S3C_UDC_OTG_DIEPCTL(ep_num));
 	writel(DEPCTL_EPENA|DEPCTL_CNAK|ctrl, S3C_UDC_OTG_DIEPCTL(ep_num));
+
+#ifndef DED_TX_FIFO
+	ctrl = readl(S3C_UDC_OTG_DIEPCTL(EP0_CON));
+	ctrl = (ctrl&~(EP_MASK<<DEPCTL_NEXT_EP_BIT))|(ep_num<<DEPCTL_NEXT_EP_BIT);
+	writel(ctrl, S3C_UDC_OTG_DIEPCTL(EP0_CON));
+#endif
 
 	DEBUG_IN_EP("%s:EP%d TX DMA start : DIEPDMA0 = 0x%x, DIEPTSIZ0 = 0x%x, DIEPCTL0 = 0x%x\n"
 			"\tbuf = 0x%p, pktcnt = %d, xfersize = %d\n",
@@ -349,7 +362,7 @@ static void process_ep_in_intr(struct s3c_udc *dev)
 
 static void process_ep_out_intr(struct s3c_udc *dev)
 {
-	u32 ep_intr, ep_intr_status, ep_ctrl;
+	u32 ep_intr, ep_intr_status;
 	u8 ep_num = 0;
 
 	ep_intr = readl(S3C_UDC_OTG_DAINT);
@@ -370,20 +383,28 @@ static void process_ep_out_intr(struct s3c_udc *dev)
 			if (ep_num == 0) {
 				if (ep_intr_status & CTRL_OUT_EP_SETUP_PHASE_DONE) {
 					DEBUG_OUT_EP("\tSETUP packet(transaction) arrived\n");
+					if (likely((ep_intr_status & BACK2BACK_SETUP_RECEIVED)==0)) {
+						if(((__raw_readl(S3C_UDC_OTG_DOEPTSIZ(0))>>29)&0x3) < 2) {
+							/* Got more than 1 setup packets */
+							/* Get the last valid setup packet (next setup pkt)*/
+							s3c_udc_pre_setup();
+							printk(KERN_DEBUG "b2bs\n");
+							continue;
+						}
+					}
 					s3c_handle_ep0(dev);
 				}
 
 				if (ep_intr_status & TRANSFER_DONE) {
 					complete_rx(dev, ep_num);
+//					s3c_udc_pre_setup();
 
-					writel((3<<29)|(1<<19)|sizeof(struct usb_ctrlrequest),
-						S3C_UDC_OTG_DOEPTSIZ(EP0_CON));
-					writel(virt_to_phys(&usb_ctrl),
-						S3C_UDC_OTG_DOEPDMA(EP0_CON));
-
-					ep_ctrl = readl(S3C_UDC_OTG_DOEPCTL(EP0_CON));
-					writel(ep_ctrl|DEPCTL_EPENA|DEPCTL_SNAK,
-						S3C_UDC_OTG_DOEPCTL(EP0_CON));
+					 u32 ep_ctrl;
+					 writel((3<<29)|(1 << 19)|sizeof(struct usb_ctrlrequest), S3C_UDC_OTG_DOEPTSIZ(EP0_CON));
+					 writel(virt_to_phys(&usb_ctrl), S3C_UDC_OTG_DOEPDMA(EP0_CON));
+    
+					 ep_ctrl = readl(S3C_UDC_OTG_DOEPCTL(EP0_CON));
+					 writel(ep_ctrl|DEPCTL_EPENA|DEPCTL_SNAK, S3C_UDC_OTG_DOEPCTL(EP0_CON));  
 				}
 
 			} else {

@@ -257,6 +257,7 @@ struct s5k4ecgx_regs {
 	struct s5k4ecgx_regset_table af_normal_mode_1;
 	struct s5k4ecgx_regset_table af_normal_mode_2;
 	struct s5k4ecgx_regset_table af_normal_mode_3;
+	struct s5k4ecgx_regset_table af_return_infinite_position;
 	struct s5k4ecgx_regset_table af_return_macro_position;
 	struct s5k4ecgx_regset_table single_af_start;
 	struct s5k4ecgx_regset_table single_af_off_1;
@@ -420,6 +421,8 @@ static const struct s5k4ecgx_regs regs_for_fw_version_1_0 = {
 	.af_normal_mode_1 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_1_v1),
 	.af_normal_mode_2 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_2_v1),
 	.af_normal_mode_3 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_3_v1),
+	.af_return_infinite_position =
+		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Return_Inf_pos_v1),
 	.af_return_macro_position =
 		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Return_Macro_pos_v1),
 	.single_af_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Single_AF_Start_v1),
@@ -583,6 +586,8 @@ static const struct s5k4ecgx_regs regs_for_fw_version_1_1 = {
 	.af_normal_mode_1 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_1),
 	.af_normal_mode_2 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_2),
 	.af_normal_mode_3 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_3),
+	.af_return_infinite_position =
+		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Return_Inf_pos),
 	.af_return_macro_position =
 		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Return_Macro_pos),
 	.single_af_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Single_AF_Start),
@@ -634,7 +639,6 @@ struct s5k4ecgx_state {
 	int check_dataline;
 	int check_previewdata;
 	bool flash_on;
-	bool torch_on;
 	bool sensor_af_in_low_light_mode;
 	bool flash_state_on_previous_capture;
 	bool initialized;
@@ -1099,38 +1103,6 @@ static int s5k4ecgx_set_face_detection(struct v4l2_subdev *sd, int value)
 				&state->regs->face_detection_off, 1, 0);
 }
 
-static int s5k4ecgx_return_focus(struct v4l2_subdev *sd)
-{
-	int err;
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct s5k4ecgx_state *state =
-			container_of(sd, struct s5k4ecgx_state, sd);
-
-	err = s5k4ecgx_set_from_table(sd,
-		"af normal mode 1",
-		&state->regs->af_normal_mode_1, 1, 0);
-	if (err < 0)
-		goto fail;
-	msleep(FIRST_SETTING_FOCUS_MODE_DELAY_MS);
-	err = s5k4ecgx_set_from_table(sd,
-		"af normal mode 2",
-		&state->regs->af_normal_mode_2, 1, 0);
-	if (err < 0)
-		goto fail;
-	msleep(SECOND_SETTING_FOCUS_MODE_DELAY_MS);
-	err = s5k4ecgx_set_from_table(sd,
-		"af normal mode 3",
-		&state->regs->af_normal_mode_3, 1, 0);
-	if (err < 0)
-		goto fail;
-
-	return 0;
-fail:
-	dev_err(&client->dev,
-		"%s: i2c_write failed\n", __func__);
-	return -EIO;
-}
-
 static int s5k4ecgx_set_focus_mode(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1167,7 +1139,18 @@ static int s5k4ecgx_set_focus_mode(struct v4l2_subdev *sd, int value)
 		break;
 
 	case FOCUS_MODE_INFINITY:
+		err = s5k4ecgx_set_from_table(sd,
+			"af return infinite position",
+			&state->regs->af_return_infinite_position, 1, 0);
+		if (err < 0)
+			goto fail;
+		parms->focus_mode = FOCUS_MODE_INFINITY;
+		break;
+
 	case FOCUS_MODE_AUTO:
+	default:
+		dev_dbg(&client->dev,
+			"%s: FOCUS_MODE_AUTO\n", __func__);
 		err = s5k4ecgx_set_from_table(sd,
 			"af normal mode 1",
 			&state->regs->af_normal_mode_1, 1, 0);
@@ -1185,10 +1168,7 @@ static int s5k4ecgx_set_focus_mode(struct v4l2_subdev *sd, int value)
 			&state->regs->af_normal_mode_3, 1, 0);
 		if (err < 0)
 			goto fail;
-		parms->focus_mode = value;
-		break;
-	default:
-		return -EINVAL;
+		parms->focus_mode = FOCUS_MODE_AUTO;
 		break;
 	}
 
@@ -1680,9 +1660,9 @@ static void s5k4ecgx_enable_torch(struct v4l2_subdev *sd)
 		container_of(sd, struct s5k4ecgx_state, sd);
 	struct s5k4ecgx_platform_data *pdata = client->dev.platform_data;
 
-	s5k4ecgx_set_from_table(sd, "torch start",
+	s5k4ecgx_set_from_table(sd, "flash start",
 				&state->regs->flash_start, 1, 0);
-	state->torch_on = true;
+	state->flash_on = true;
 	pdata->torch_onoff(1);
 }
 
@@ -1693,10 +1673,10 @@ static void s5k4ecgx_disable_torch(struct v4l2_subdev *sd)
 		container_of(sd, struct s5k4ecgx_state, sd);
 	struct s5k4ecgx_platform_data *pdata = client->dev.platform_data;
 
-	if (state->torch_on) {
-		state->torch_on = false;
+	if (state->flash_on) {
+		state->flash_on = false;
 		pdata->torch_onoff(0);
-		s5k4ecgx_set_from_table(sd, "torch end",
+		s5k4ecgx_set_from_table(sd, "flash end",
 					&state->regs->flash_end, 1, 0);
 	}
 }
@@ -1987,7 +1967,7 @@ static int s5k4ecgx_get_iso(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	/* restore write mode */
 	s5k4ecgx_i2c_write_twobyte(client, 0x0028, 0x7000);
 
-	read_value = read_value1 * read_value2 / 384;
+	read_value = read_value1 * read_value2 / 0x100 / 2;
 
 	if (read_value > 0x400)
 		ctrl->value = ISO_400;
@@ -2011,20 +1991,16 @@ static int s5k4ecgx_get_shutterspeed(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct s5k4ecgx_state *state =
 		container_of(sd, struct s5k4ecgx_state, sd);
-	u16 read_value_1;
-	u16 read_value_2;
-	u32 read_value;
+	u16 read_value = 0;
 
 	err = s5k4ecgx_set_from_table(sd, "get shutterspeed",
 				&state->regs->get_shutterspeed, 1, 0);
-	err |= s5k4ecgx_i2c_read_twobyte(client, 0x0F12, &read_value_1);
-	err |= s5k4ecgx_i2c_read_twobyte(client, 0x0F12, &read_value_2);
+	err |= s5k4ecgx_i2c_read_twobyte(client, 0x0F12, &read_value);
 
-	read_value = (read_value_2 << 16) | (read_value_1 & 0xffff);
 	/* restore write mode */
 	s5k4ecgx_i2c_write_twobyte(client, 0x0028, 0x7000);
 
-	ctrl->value = read_value * 1000 / 400;
+	ctrl->value = read_value / 400;
 	dev_dbg(&client->dev,
 			"%s: get shutterspeed == %d\n", __func__, ctrl->value);
 
@@ -2367,10 +2343,6 @@ static int s5k4ecgx_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_CAMERA_CHECK_DATALINE_STOP:
 		err = s5k4ecgx_check_dataline_stop(sd);
-		break;
-	case V4L2_CID_CAMERA_RETURN_FOCUS:
-		if (parms->focus_mode != FOCUS_MODE_MACRO)
-			err = s5k4ecgx_return_focus(sd);
 		break;
 	default:
 		dev_err(&client->dev, "%s: unknown set ctrl id 0x%x\n",
