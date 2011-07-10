@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export KBUILD_BUILD_VERSION="Neo-mod"
+export KBUILD_BUILD_VERSION="Neo-11-mod"
 
 echo "copying config for i9000"
 cp arch/arm/configs/aries_galaxysmtd_defconfig .config
