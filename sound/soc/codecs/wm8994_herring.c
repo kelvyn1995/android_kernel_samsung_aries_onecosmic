@@ -29,7 +29,7 @@
 /*
  * Debug Feature
  */
-#define SUBJECT "wm8994_herring.c"
+#define SUBJECT "wm8994_crespo.c"
 
 /*
  * Definitions of tunning volumes for wm8994
