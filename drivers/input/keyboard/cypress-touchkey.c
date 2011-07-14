@@ -46,6 +46,7 @@
 
 #define DEVICE_NAME "cypress-touchkey"
 
+static DEFINE_SPINLOCK(bl_lock);
 int bl_on = 0;
 struct cypress_touchkey_devdata *bl_devdata;
 static struct timer_list bl_timer;
@@ -232,12 +233,14 @@ static void notify_led_on(void) {
 	if (unlikely(bl_devdata->is_dead))
 		return;
 
+    spin_lock_irqsave(&bl_lock, flags);
 	if (bl_devdata->is_sleeping) {
 		bl_devdata->pdata->touchkey_sleep_onoff(TOUCHKEY_ON);
 		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_ON);
 	}
 	i2c_touchkey_write_byte(bl_devdata, bl_devdata->backlight_on);
 	bl_on = 1;
+    spin_unlock_irqrestore(&bl_lock, flags);
 	printk(KERN_DEBUG "%s: notification led enabled\n", __FUNCTION__);
 }
 
@@ -246,6 +249,7 @@ static void notify_led_off(void) {
 	if (unlikely(bl_devdata->is_dead))
 		return;
 
+    spin_lock_irqsave(&bl_lock, flags);
 	if (bl_on)
 		i2c_touchkey_write_byte(bl_devdata, bl_devdata->backlight_off);
 
@@ -254,6 +258,7 @@ static void notify_led_off(void) {
 		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
 
 	bl_on = 0;
+    spin_unlock_irqrestore(&bl_lock, flags);
 	printk(KERN_DEBUG "%s: notification led disabled\n", __FUNCTION__);
 }
 
