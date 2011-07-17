@@ -24,8 +24,8 @@
 struct touchkey_platform_data {
 	int keycode_cnt;
 	const int *keycode;
-	void (*touchkey_sleep_onoff) (int);
 	void (*touchkey_onoff) (int);
+	void (*touchkey_sleep_onoff) (int);
 	const char *fw_name;
 	int scl_pin;
 	int sda_pin;
