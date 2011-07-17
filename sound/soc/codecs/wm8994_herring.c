@@ -22,8 +22,8 @@
 #include "wm8994_samsung.h"
 #include "../../../arch/arm/mach-s5pv210/herring.h"
 
-#ifdef CONFIG_SND_WM8994_EXTENSIONS
-#include "wm8994_extensions.h"
+#ifdef CONFIG_SND_VOODOO
+#include "wm8994_voodoo.h"
 #endif
 
 /*
@@ -762,12 +762,20 @@ struct gain_info_t voicecall_gain_table[VOICECALL_GAIN_NUM] = {
 		.mode = VOICECALL_SPK,
 		.reg  = WM8994_INPUT_MIXER_3,		/* 29h */
 		.mask = WM8994_IN1L_MIXINL_VOL_MASK | WM8994_MIXOUTL_MIXINL_VOL_MASK,
+#ifdef CONFIG_SAMSUNG_FASCINATE
+		.gain = 0x12     /* Mic +?dB */
+else
 		.gain = 0x10     /* Mic +7.5dB */
+#endif
 	}, {
 		.mode = VOICECALL_SPK,
 		.reg  = WM8994_LEFT_LINE_INPUT_1_2_VOLUME,	/* 18h */
 		.mask = WM8994_IN1L_VOL_MASK,
+#ifdef CONFIG_SAMSUNG_FASCINATE
+		.gain = WM8994_IN1L_VU | 0x16   /* Mic +?dB */
+else
 		.gain = WM8994_IN1L_VU | 0x12   /* Mic +30dB */
+#endif
 	}, {
 		.mode = VOICECALL_SPK,
 		.reg  = WM8994_SPKMIXL_ATTENUATION,	/* 22h */
@@ -1778,8 +1786,8 @@ void wm8994_record_main_mic(struct snd_soc_codec *codec)
 	else
 		wm8994_set_codec_gain(codec, RECORDING_MODE, RECORDING_MAIN);
 
-#ifdef CONFIG_SND_WM8994_EXTENSIONS_RECORD_PRESETS
-	wm8994_extensions_record_main_mic();
+#ifdef CONFIG_SND_VOODOO_RECORD_PRESETS
+	voodoo_hook_record_main_mic();
 #endif
 }
 
@@ -2216,8 +2224,8 @@ void wm8994_set_playback_speaker(struct snd_soc_codec *codec)
 	val |= WM8994_AIF1DAC1L_TO_DAC1L;
 	wm8994_write(codec, WM8994_DAC1_LEFT_MIXER_ROUTING, val);
 
-#ifdef CONFIG_SND_WM8994_EXTENSIONS
-	wm8994_extensions_playback_speaker();
+#ifdef CONFIG_SND_VOODOO
+	voodoo_hook_playback_speaker();
 #endif
 
 	/* Enbale bias,vmid and Left speaker */
@@ -2636,7 +2644,6 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 
 	wm8994_write(codec, 0x6, 0x0);
 }
-
 
 void wm8994_set_playback_extra_dock_speaker(struct snd_soc_codec *codec)
 {
