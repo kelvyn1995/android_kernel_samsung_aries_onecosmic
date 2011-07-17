@@ -2,7 +2,7 @@ VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 35
 EXTRAVERSION = .7
-NAME = Bali-CM_v1.0alpha
+NAME = Bali-CM_v1.0beta
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
