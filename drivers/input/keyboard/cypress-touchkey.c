@@ -118,6 +118,8 @@ static void all_keys_up(struct cypress_touchkey_devdata *devdata)
 
 static int recovery_routine(struct cypress_touchkey_devdata *devdata)
 {
+	//dev_err(&devdata->client->dev, "%s: recovery_routine\n", __func__);
+	//printk("cypress: recovery_routine\n");
 	int ret = -1;
 	int retry = 10;
 	u8 data;
@@ -160,7 +162,7 @@ static irqreturn_t touchkey_interrupt_thread(int irq, void *touchkey_devdata)
 	int ret;
 	int scancode;
 	struct cypress_touchkey_devdata *devdata = touchkey_devdata;
-
+//dev_err(&devdata->client->dev, "%s: touchkey_interrupt_thread\n", __func__);
 	ret = i2c_touchkey_read_byte(devdata, &data);
 	if (ret || (data & ESD_STATE_MASK)) {
 		ret = recovery_routine(devdata);
@@ -190,6 +192,7 @@ static irqreturn_t touchkey_interrupt_thread(int irq, void *touchkey_devdata)
 
 	input_sync(devdata->input_dev);
 err:
+	dev_err(&devdata->client->dev, "%s: touchkey_interrupt_thread\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -197,9 +200,19 @@ static irqreturn_t touchkey_interrupt_handler(int irq, void *touchkey_devdata)
 {
 	struct cypress_touchkey_devdata *devdata = touchkey_devdata;
 
+/*		dev_err(&devdata->client->dev, "%s: touchkey_interrupt_handler\n", __func__);
+*/
+
 	if (devdata->is_powering_on) {
 		dev_dbg(&devdata->client->dev, "%s: ignoring spurious boot "
 					"interrupt\n", __func__);
+/*#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+		if(!BacklightNotification_ongoing) {	
+			i2c_touchkey_write_byte(devdata, devdata->backlight_off);
+			printk("cypress: turning off backlights because we have screen off and no notifications\n");
+		}	
+#endif*/
+
 		return IRQ_HANDLED;
 	}
 
@@ -217,7 +230,7 @@ static void cypress_touchkey_early_suspend(struct early_suspend *h)
 	if (unlikely(devdata->is_dead))
 		return;
 
-	disable_irq(devdata->client->irq);
+//	disable_irq(devdata->client->irq); // do not disable interrupt disable otherwise notification will turn off
 
 
 #ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
@@ -238,6 +251,7 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 		container_of(h, struct cypress_touchkey_devdata, early_suspend);
 
 	devdata->pdata->touchkey_onoff(TOUCHKEY_ON);
+	printk("cypress: turning backlight on after early_resume\n");
 	if (i2c_touchkey_write_byte(devdata, devdata->backlight_on)) {
 		devdata->is_dead = true;
 		devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
@@ -551,11 +565,11 @@ static int cypress_touchkey_probe(struct i2c_client *client,
 	devdata->is_powering_on = false;
 
 #ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
-	pr_info("%s misc_register(%s)\n", __FUNCTION__, backlightnotification_device.name);
-	err = misc_register(&backlightnotification_device);
-	if (err) {
-		pr_err("%s misc_register(%s) fail\n", __FUNCTION__, backlightnotification_device.name);
-	}else {
+//	pr_info("%s misc_register(%s)\n", __FUNCTION__, backlightnotification_device.name);
+//	err = misc_register(&backlightnotification_device);
+//	if (err) {
+//		pr_err("%s misc_register(%s) fail\n", __FUNCTION__, backlightnotification_device.name);
+//	}else {
 		/*
 		 *  keep a reference to the devdata,
 		 *  misc driver does not give access to it (or i did miss that somewhere)
@@ -563,12 +577,12 @@ static int cypress_touchkey_probe(struct i2c_client *client,
 		blndevdata = devdata;
 
 		/* add the backlightnotification attributes */
-		if (sysfs_create_group(&backlightnotification_device.this_device->kobj, &bln_notification_group) < 0)
-		{
-			pr_err("%s sysfs_create_group fail\n", __FUNCTION__);
-			pr_err("Failed to create sysfs group for device (%s)!\n", backlightnotification_device.name);
-		}
-	}
+//		if (sysfs_create_group(&backlightnotification_device.this_device->kobj, &bln_notification_group) < 0)
+//		{
+//			pr_err("%s sysfs_create_group fail\n", __FUNCTION__);
+//			pr_err("Failed to create sysfs group for device (%s)!\n", backlightnotification_device.name);
+//		}
+//	}
 #endif
 
 	return 0;
@@ -627,6 +641,20 @@ struct i2c_driver touchkey_i2c_driver = {
 static int __init touchkey_init(void)
 {
 	int ret = 0;
+	#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
+	ret = 0;
+	ret = misc_register(&backlightnotification_device);
+	if (ret) {
+		printk("%s misc_register fail\n", __FUNCTION__, backlightnotification_device.name);
+	} else {
+	//add the backlightnotification attributes
+	if (sysfs_create_group(&backlightnotification_device.this_device->kobj, &bln_notification_group) < 0)
+		{
+		printk("%s sysfs_create_group fail\n", __FUNCTION__);
+		pr_err("Failed to create sysfs group for device (%s)!\n", backlightnotification_device.name);
+		}
+	}
+        #endif
 
 	ret = i2c_add_driver(&touchkey_i2c_driver);
 	if (ret)
@@ -638,6 +666,9 @@ static int __init touchkey_init(void)
 
 static void __exit touchkey_exit(void)
 {
+#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+	misc_deregister(&backlightnotification_device);
+#endif
 	i2c_del_driver(&touchkey_i2c_driver);
 }
 
