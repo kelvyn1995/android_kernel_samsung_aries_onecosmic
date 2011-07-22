@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 35
-EXTRAVERSION = .13_platypus-rev-NEO_16
+EXTRAVERSION = .13_platypus-rev-NEO_16-led-notif
 NAME = Yokohama
 
 # *DOCUMENTATION*
