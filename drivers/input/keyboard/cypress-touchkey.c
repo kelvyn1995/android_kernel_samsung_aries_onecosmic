@@ -125,14 +125,11 @@ static void all_keys_up(struct cypress_touchkey_devdata *devdata)
 
 static void bl_off(struct work_struct *bl_off_work)
 {
-	printk("Cypress: bl_off: turning off lights\n");
 	i2c_touchkey_write_byte(blndevdata, blndevdata->backlight_off);
 }
 
 static int recovery_routine(struct cypress_touchkey_devdata *devdata)
 {
-	//dev_err(&devdata->client->dev, "%s: recovery_routine\n", __func__);
-	//printk("cypress: recovery_routine\n");
 	int ret = -1;
 	int retry = 10;
 	u8 data;
@@ -175,7 +172,6 @@ static irqreturn_t touchkey_interrupt_thread(int irq, void *touchkey_devdata)
 	int ret;
 	int scancode;
 	struct cypress_touchkey_devdata *devdata = touchkey_devdata;
-//dev_err(&devdata->client->dev, "%s: touchkey_interrupt_thread\n", __func__);
 	ret = i2c_touchkey_read_byte(devdata, &data);
 	if (ret || (data & ESD_STATE_MASK)) {
 		ret = recovery_routine(devdata);
@@ -204,7 +200,6 @@ static irqreturn_t touchkey_interrupt_thread(int irq, void *touchkey_devdata)
 	}
 
 	input_sync(devdata->input_dev);
-	printk("Cypress: resetting timer after interrupt\n");
 #ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	if(time != 0)
 		mod_timer(&timer, jiffies + msecs_to_jiffies(time));
@@ -219,17 +214,9 @@ static irqreturn_t touchkey_interrupt_handler(int irq, void *touchkey_devdata)
 {
 	struct cypress_touchkey_devdata *devdata = touchkey_devdata;
 
-/*		dev_err(&devdata->client->dev, "%s: touchkey_interrupt_handler\n", __func__);
-*/
 	if (devdata->is_powering_on) {
 		dev_err(&devdata->client->dev, "%s: ignoring spurious boot "
 					"interrupt\n", __func__);
-/*#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
-		if(!BacklightNotification_ongoing) {	
-			i2c_touchkey_write_byte(devdata, devdata->backlight_off);
-			printk("cypress: turning off backlights because we have screen off and no notifications\n");
-		}	
-#endif*/
 		return IRQ_HANDLED;
 	}
 
@@ -267,7 +254,6 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 		container_of(h, struct cypress_touchkey_devdata, early_suspend);
 
 	devdata->pdata->touchkey_onoff(TOUCHKEY_ON);
-	printk("cypress: turning backlight on after early_resume\n");
 	if (i2c_touchkey_write_byte(devdata, devdata->backlight_on)) {
 		devdata->is_dead = true;
 		devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
@@ -404,10 +390,8 @@ static int cypress_touchkey_probe(struct i2c_client *client,
 	devdata->is_powering_on = false;
 #ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	blndevdata = devdata;
-	if(time != 0) {
-		printk("Cypress: Setting up timer\n");
+	if(time != 0) 
 		setup_timer(&timer, timer_function, 0);
-	}	
 #endif
 
 
@@ -595,7 +579,7 @@ static ssize_t backlight_timer_read(struct device *dev, struct device_attribute 
 static ssize_t backlight_timer_write(struct device *dev, struct device_attribute *attr, const char *buf, size_t size) {
 
 	if(!sscanf(buf, "%d", &time))
-		printk("Cypress-Touchkey: Unable to write backlight_timer");
+		printk("cypress: Unable to write backlight_timer");
 
 /* Okay, if time == 0, we're just going to delete the timer, as there is no need for it, and no real way to keep it running for infinite time. */
 	if(time == 0) {
