@@ -50,6 +50,7 @@ static unsigned int backup_freq_level;
 static unsigned int mpll_freq; /* in MHz */
 static unsigned int apll_freq_max; /* in MHz */
 static DEFINE_MUTEX(set_freq_lock);
+#define GPU_OC 0
 
 /* frequency */
 
@@ -68,7 +69,7 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{0, CPUFREQ_TABLE_END},
 };
 
-extern int exp_UV_mV[11]; //Needed for uv
+extern int exp_UV_mV[11]; 
 unsigned int freq_uv_table[11][3] = {
 	//freq, stock, current
 	{1600000,	1500,	1500},
@@ -83,8 +84,22 @@ unsigned int freq_uv_table[11][3] = {
 	{200000,	950,	950},
 	{100000,	950,	950}
 };
-//extern int enabled_freqs[8];
-//extern int update_states = 0;
+
+#if defined(GPU_OC)
+int gpu[11][2] = {
+	{ 200, 200 },
+	{ 246, 246 },
+	{ 240, 240 },
+	{ 233, 233 },
+	{ 216, 216 },
+	{ 200, 200 },
+	{ 200, 200 },
+	{ 200, 200 },
+	{ 200, 200 },
+	{ 200, 200 },
+	{ 200, 200 }
+};
+#endif
 
 struct s5pv210_dvs_conf {
 	unsigned long       arm_volt;   /* uV */
@@ -102,7 +117,7 @@ static unsigned int g_dvfslockval[DVFS_LOCK_TOKEN_NUM];
 const unsigned long arm_volt_max = 1550000;
 const unsigned long int_volt_max = 1250000;
 
-// added more voltage levels for the added frequencies
+
 static struct s5pv210_dvs_conf dvs_conf[] = {
 	[L0] = {
 		.arm_volt   = 1500000,
@@ -150,7 +165,7 @@ static struct s5pv210_dvs_conf dvs_conf[] = {
 	},
 };
 
-//more clocks 
+
 static u32 clkdiv_val[11][11] = {
 	/*{ APLL, A2M, HCLK_MSYS, PCLK_MSYS,
 	 * HCLK_DSYS, PCLK_DSYS, HCLK_PSYS, PCLK_PSYS, ONEDRAM,
@@ -180,7 +195,7 @@ static u32 clkdiv_val[11][11] = {
 	{7, 7, 0, 0, 7, 0, 9, 0, 7, 0, 0},
 };
 
-//And even more clocks
+
 static struct s3c_freq clk_info[] = {
 	[L0] = {        /* L0: 1.54GHz */
                 .fclk       = 1600000,
@@ -409,7 +424,7 @@ static void s5pv210_cpufreq_clksrcs_MPLL2APLL(unsigned int index,
 	 * 2-1. Set PMS values
 	 */
 
-//Fixed up the 1200mhz overclock (Thanks netarchy!)
+
 	if (index == L0)
 		__raw_writel(PLL45XX_APLL_VAL_1600, S5P_APLL_CON);
 	else if (index == L1)
@@ -631,11 +646,10 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
           index = L6;
      }
 #endif
-//Subtract the voltage in the undervolt table before supplying it to the cpu
-//Got to multiply by 1000 to account for the conversion between SGS and NS
+	if(unlikely(exp_UV_mV[index] < -50))
+		exp_UV_mV[index] = -50;
+	
 	arm_volt = (dvs_conf[index].arm_volt - (exp_UV_mV[index]*1000));
-	//freq_uv_table[index][2] =(int) arm_volt / 1000;
-	//arm_volt = dvs_conf[index].arm_volt;
 	int_volt = dvs_conf[index].int_volt;
 
 	/* New clock information update */
@@ -657,6 +671,50 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 		}
 	}
 	cpufreq_notify_transition(&s3c_freqs.freqs, CPUFREQ_PRECHANGE);
+
+/* This is currently broken, will fix at somepoint.  */
+#if defined(GPU_OC)  
+switch(s3c_freqs.old.armclk) {
+	case 1600000:
+		s3c_freqs.old.hclk_msys = gpu[0][1];
+		break;	
+	case 1500000:
+		s3c_freqs.old.hclk_msys = gpu[1][1];
+		break;
+	case 1440000:
+		s3c_freqs.old.hclk_msys = gpu[2][1];
+		break;
+	case 1400000:
+		s3c_freqs.old.hclk_msys = gpu[3][1];
+		break;
+	case 1300000:
+		s3c_freqs.old.hclk_msys = gpu[4][1];
+		break;
+	case 1200000:
+		s3c_freqs.old.hclk_msys = gpu[5][1];
+		break;
+	case 1000000:
+		s3c_freqs.old.hclk_msys = gpu[6][1];
+		break;
+	case 800000:
+		s3c_freqs.old.hclk_msys = gpu[7][1];
+		break;
+	case 400000:
+		s3c_freqs.old.hclk_msys = gpu[8][1];
+		break;
+	case 200000:
+		s3c_freqs.old.hclk_msys = gpu[9][1];
+		break;
+	case 100000:
+		s3c_freqs.old.hclk_msys = gpu[10][1];
+		break;
+}
+
+/* Convert to khz */  
+
+	s3c_freqs.old.hclk_msys *= 1000;
+	s3c_freqs.new.hclk_msys = gpu[index][1]*1000;
+#endif
 
 	if (s3c_freqs.new.fclk != s3c_freqs.old.fclk || first_run)
 		pll_changing = 1;
@@ -702,7 +760,12 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 		 * that should be fixed before.
 		 */
 		reg = backup_dmc1_reg * s3c_freqs.new.hclk_msys;
+#ifdef GPU_OC
+		/* gpu[freq][1] is the actual hclk_msys. We want to use this in place of the static clk_info. */
+		reg /= gpu[backup_freq_level][1];
+#else
 		reg /= clk_info[backup_freq_level].hclk_msys;
+#endif
 
 		/*
 		 * When ARM_CLK is absed on APLL->MPLL,
@@ -803,8 +866,13 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 	 * then, the refresh rate should decrease
 	 * (by original refresh count * n) (n : clock rate)
 	 */
+#ifdef GPU_OC
+	reg = backup_dmc1_reg * gpu[index][1];
+	reg /= gpu[backup_freq_level][1];
+#else
 	reg = backup_dmc1_reg * clk_info[index].hclk_msys;
 	reg /= clk_info[backup_freq_level].hclk_msys;
+#endif
 	__raw_writel(reg & 0xFFFF, S5P_VA_DMC1 + 0x30);
 	cpufreq_notify_transition(&s3c_freqs.freqs, CPUFREQ_POSTCHANGE);
 
@@ -822,9 +890,7 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 	memcpy(&s3c_freqs.old, &s3c_freqs.new, sizeof(struct s3c_freq));
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, KERN_INFO,
 			"cpufreq: Performance changed[L%d]\n", index);
-//more uv
 	previous_arm_volt = (dvs_conf[index].arm_volt - (exp_UV_mV[index] * 1000));
-	//freq_uv_table[index][2] = (int) previous_arm_volt / 1000;
 
 	if (first_run)
 		first_run = false;
@@ -867,9 +933,9 @@ static int s5pv210_cpufreq_resume(struct cpufreq_policy *policy)
 
 	memcpy(&s3c_freqs.old, &clk_info[level],
 			sizeof(struct s3c_freq));
-//even more uv
+
 	previous_arm_volt = (dvs_conf[level].arm_volt - (exp_UV_mV[level]*1000));
-	//freq_uv_table[level][2] = (int) previous_arm_volt / 1000;
+
 
 	return ret;
 }
@@ -937,9 +1003,7 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	memcpy(&s3c_freqs.old, &clk_info[level],
 			sizeof(struct s3c_freq));
-//is dat some more uv?
 	previous_arm_volt = (dvs_conf[level].arm_volt - (exp_UV_mV[level]*1000));
-	freq_uv_table[level][2] = (int) previous_arm_volt / 1000;
 
 #ifdef CONFIG_DVFS_LIMIT
 	for(i = 0; i < DVFS_LOCK_TOKEN_NUM; i++)
@@ -947,7 +1011,6 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 #endif
 
 	cpufreq_frequency_table_cpuinfo(policy, freq_table);
-//Set initial max speed to 1ghz for people who don't want to overclock
 	policy->max = 1000000;
 	policy->min = 100000;
 	return 0;

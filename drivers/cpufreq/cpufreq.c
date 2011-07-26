@@ -35,6 +35,7 @@
 int exp_UV_mV[11];
 extern unsigned int freq_uv_table[11][3];
 int enabled_freqs[8] = { 1, 1, 1, 1, 1, 1, 1, 1 };
+extern int gpu[11][2];
 
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
@@ -718,6 +719,43 @@ static ssize_t store_states_enabled_table(struct cpufreq_policy *policy, const c
 		return count;
 }
 
+static ssize_t show_gpu_clock_table(struct cpufreq_policy *policy, char *buf) {
+	return sprintf(buf, "%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n",
+		gpu[0][0], gpu[0][1],
+		gpu[1][0], gpu[1][1],
+		gpu[2][0], gpu[2][1],
+		gpu[3][0], gpu[3][1],
+		gpu[4][0], gpu[4][1],
+		gpu[5][0], gpu[5][1],
+		gpu[6][0], gpu[6][1],
+		gpu[7][0], gpu[7][1],
+		gpu[8][0], gpu[8][1],
+		gpu[9][0], gpu[9][1],
+		gpu[10][0], gpu[10][1]);
+}
+
+static ssize_t store_gpu_clock_table(struct cpufreq_policy *policy, const char *buf, int count) {
+	unsigned int ret = -EINVAL;
+	
+	ret = sscanf(buf, "%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n%d %d\n",
+		&gpu[0][0], &gpu[0][1],
+		&gpu[1][0], &gpu[1][1],
+		&gpu[2][0], &gpu[2][1],
+		&gpu[3][0], &gpu[3][1],
+		&gpu[4][0], &gpu[4][1],
+		&gpu[5][0], &gpu[5][1],
+		&gpu[6][0], &gpu[6][1],
+		&gpu[7][0], &gpu[7][1],
+		&gpu[8][0], &gpu[8][1],
+		&gpu[9][0], &gpu[9][1],
+		&gpu[10][0], &gpu[10][1]);
+	
+	if(ret != -1)
+		return -EINVAL;
+	else
+		return ret;	
+}
+
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
 cpufreq_freq_attr_ro(cpuinfo_max_freq);
@@ -735,6 +773,7 @@ cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
 cpufreq_freq_attr_rw(UV_mV_table);
 cpufreq_freq_attr_rw(states_enabled_table);
+cpufreq_freq_attr_rw(gpu_clock_table);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -751,6 +790,7 @@ static struct attribute *default_attrs[] = {
 	&UV_mV_table.attr,
 	&frequency_voltage_table.attr,
 	&states_enabled_table.attr,
+	&gpu_clock_table.attr,
 	NULL
 };
 
