@@ -56,7 +56,7 @@ struct cypress_touchkey_devdata {
 	bool has_legacy_keycode;
 };
 
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 bool bln_enabled = false;
 bool BacklightNotification_ongoing = false;
 bool bln_blink_enabled = false;
@@ -205,7 +205,7 @@ static irqreturn_t touchkey_interrupt_thread(int irq, void *touchkey_devdata)
 
 	input_sync(devdata->input_dev);
 	printk("Cypress: resetting timer after interrupt\n");
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	if(time != 0)
 		mod_timer(&timer, jiffies + msecs_to_jiffies(time));
 #endif
@@ -224,7 +224,7 @@ static irqreturn_t touchkey_interrupt_handler(int irq, void *touchkey_devdata)
 	if (devdata->is_powering_on) {
 		dev_err(&devdata->client->dev, "%s: ignoring spurious boot "
 					"interrupt\n", __func__);
-/*#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+/*#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 		if(!BacklightNotification_ongoing) {	
 			i2c_touchkey_write_byte(devdata, devdata->backlight_off);
 			printk("cypress: turning off backlights because we have screen off and no notifications\n");
@@ -248,7 +248,7 @@ static void cypress_touchkey_early_suspend(struct early_suspend *h)
 	if (unlikely(devdata->is_dead))
 		return;
 
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	/*
 	 * Disallow powering off the touchkey controller on ongoing led notification
 	 */
@@ -278,7 +278,7 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 	devdata->is_dead = false;
 	enable_irq(devdata->client->irq);
 	devdata->is_powering_on = false;
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	if(time != 0) 
 		mod_timer(&timer, jiffies + msecs_to_jiffies(time));
 #endif
@@ -287,7 +287,7 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 #endif
 
 
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 void timer_function(unsigned long data) {
 	
 	schedule_work(&bl_off_work);
@@ -373,7 +373,7 @@ static int cypress_touchkey_probe(struct i2c_client *client,
 	}
 
 
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	devdata->has_legacy_keycode = true;
 #else
 	devdata->has_legacy_keycode = data[1] >= 0xc4 || data[1] < 0x9 ||
@@ -402,7 +402,7 @@ static int cypress_touchkey_probe(struct i2c_client *client,
 	register_early_suspend(&devdata->early_suspend);
 
 	devdata->is_powering_on = false;
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	blndevdata = devdata;
 	if(time != 0) {
 		printk("Cypress: Setting up timer\n");
@@ -428,7 +428,7 @@ err_null_keycodes:
 	return err;
 }
 
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 /* bln start */
 
 static void enable_touchkey_backlights(void){
@@ -679,7 +679,7 @@ struct i2c_driver touchkey_i2c_driver = {
 static int __init touchkey_init(void)
 {
 	int ret = 0;
-	#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+	#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	ret = 0;
 	ret = misc_register(&backlightnotification_device);
 	if (ret) {
@@ -703,7 +703,7 @@ static int __init touchkey_init(void)
 
 static void __exit touchkey_exit(void)
 {
-#ifdef CONFIG_BACKLIGHT_NOTIFICATION
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_USE_BLN
 	misc_deregister(&backlightnotification_device);
 	del_timer(&timer);
 #endif
