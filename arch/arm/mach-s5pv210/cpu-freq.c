@@ -67,6 +67,18 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{0, CPUFREQ_TABLE_END},
 };
 
+unsigned int freq_uv_table[8][3] = {
+	//Freq, Stock, Current
+	{1400000,	1450,	1450},
+	{1300000,	1400,	1400},
+	{1200000,	1350,	1350},
+	{1000000,	1250,	1250},
+	{800000,	1200,	1200},
+	{400000,	1150,	1150},
+	{200000,	950,	950},
+	{100000,	950,	950},
+};
+
 struct s5pv210_dvs_conf {
 	unsigned long       arm_volt;   /* uV */
 	unsigned long       int_volt;   /* uV */
@@ -543,8 +555,8 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 	if (s3c_freqs.freqs.new == s3c_freqs.freqs.old && !first_run)
 		goto out;
 
-//	arm_volt = (dvs_conf[index].arm_volt + (exp_UV_mV[index] * 1000));
-	arm_volt = exp_UV_mV[index]; //dvs_conf[index].arm_volt;
+	arm_volt = (dvs_conf[index].arm_volt - (exp_UV_mV[index] * 1000));
+	//arm_volt = exp_UV_mV[index]; //dvs_conf[index].arm_volt;
 	int_volt = dvs_conf[index].int_volt;
 	
 //	printk("setting vdd %d for speed %d\n", arm_volt, arm_clk);
@@ -734,8 +746,8 @@ static int s5pv210_cpufreq_target(struct cpufreq_policy *policy,
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, KERN_INFO,
 			"cpufreq: Performance changed[L%d]\n", index);
 //	previous_arm_volt = dvs_conf[index].arm_volt;
-	previous_arm_volt = exp_UV_mV[index];
-//	previous_arm_volt = (dvs_conf[index].arm_volt + (exp_UV_mV[index] * 1000));
+//	previous_arm_volt = exp_UV_mV[index];
+	previous_arm_volt = (dvs_conf[index].arm_volt - (exp_UV_mV[index] * 1000));
 
 	if (first_run)
 		first_run = false;
@@ -778,8 +790,8 @@ static int s5pv210_cpufreq_resume(struct cpufreq_policy *policy)
 
 	memcpy(&s3c_freqs.old, &clk_info[level],
 			sizeof(struct s3c_freq));
-	previous_arm_volt = exp_UV_mV[level]; //dvs_conf[level].arm_volt;
-//	previous_arm_volt = (dvs_conf[level].arm_volt + (exp_UV_mV[level] * 1000));
+//	previous_arm_volt = exp_UV_mV[level]; //dvs_conf[level].arm_volt;
+	previous_arm_volt = (dvs_conf[level].arm_volt - (exp_UV_mV[level] * 1000));
 	
 	return ret;
 }
@@ -848,7 +860,9 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 	memcpy(&s3c_freqs.old, &clk_info[level],
 			sizeof(struct s3c_freq));
 	//previous_arm_volt = dvs_conf[level].arm_volt;
-	previous_arm_volt = exp_UV_mV[level]; //dvs_conf[level].arm_volt;
+	//previous_arm_volt = exp_UV_mV[level]; //dvs_conf[level].arm_volt;
+	previous_arm_volt = (dvs_conf[level].arm_volt - (exp_UV_mV[level]*1000));
+	freq_uv_table[level][2] = (int) previous_arm_volt / 1000;
 
 #ifdef CONFIG_DVFS_LIMIT
 	for(i = 0; i < DVFS_LOCK_TOKEN_NUM; i++)
