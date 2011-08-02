@@ -24,7 +24,7 @@ find . -name "*.ko" -exec cp {} release/system/lib/modules/ \; 2>/dev/null || ex
 
 cd release && {
 	cp 91logger system/etc/init.d/ || exit 1
-	cp lights.aries.so system/lib/hw/ || exit 1
+#	cp lights.aries.so system/lib/hw/ || exit 1
 	mkdir -p system/bin
 	cp bin/* system/bin/
 	zip -q -r ${REL} system boot.img META-INF bml_over_mtd bml_over_mtd.sh || exit 1
