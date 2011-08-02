@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 35
-EXTRAVERSION = .13_platypus-revolutions_NEO_9-redux
+EXTRAVERSION = .13_platypus_NEO_9-redux_v2
 NAME = Yokohama
 
 # *DOCUMENTATION*
