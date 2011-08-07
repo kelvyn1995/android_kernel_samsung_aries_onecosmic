@@ -284,4 +284,10 @@ config WIFI_CONTROL_FUNC
        bool "Enable WiFi control function abstraction"
        help
          Enables Power/Reset/Carddetect function abstraction
+         
+config DISABLE_PRINTK
+	   bool "Disable Printk in kernel"
+	   depends on EXPERIMENTAL
+	   help
+	   	Disable printk completely in kernel to reduce overhead.
 endif
