@@ -441,4 +441,8 @@ config KEYPAD_CYPRESS_TOUCH_HAS_LEGACY_KEYCODE
 	default n
 	help
 	 Say Y here if your device uses legacy keycodes.
+
+config KEYPAD_CYPRESS_TOUCH_USE_BLN
+	bool "BLN support"
+	default y
 endif
