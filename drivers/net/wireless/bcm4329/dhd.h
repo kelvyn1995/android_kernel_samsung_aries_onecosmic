@@ -169,7 +169,7 @@ typedef struct dhd_pub {
 	char * pktfilter[100];
 	int pktfilter_count;
 
-	uint8 country_code[WLC_CNTRY_BUF_SZ];
+	wl_country_t dhd_cspec;		/* Current Locale info */
 	char eventmask[WL_EVENTING_MASK_LEN];
 
 #ifdef CONFIG_HAS_WAKELOCK
@@ -460,5 +460,12 @@ extern void dhd_wait_event_wakeup(dhd_pub_t*dhd);
 extern void dhd_arp_cleanup(dhd_pub_t *dhd);
 int dhd_arp_get_arp_hostip_table(dhd_pub_t *dhd, void *buf, int buflen);
 void dhd_arp_offload_add_ip(dhd_pub_t *dhd, u32 ipaddr);
+
+#define DHD_UNICAST_FILTER_NUM         0
+#define DHD_BROADCAST_FILTER_NUM       1
+#define DHD_MULTICAST4_FILTER_NUM      2
+#define DHD_MULTICAST6_FILTER_NUM      3
+extern int net_os_set_packet_filter(struct net_device *dev, int val);
+extern int net_os_rxfilter_add_remove(struct net_device *dev, int val, int num);
 
 #endif /* _dhd_h_ */
