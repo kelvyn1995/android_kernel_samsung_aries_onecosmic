@@ -357,7 +357,10 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks
+		   -fno-delete-null-pointer-checks \
+		   --param l2-cache-size=256 --param l1-cache-size=16 --param simultaneous-prefetches=8 --param prefetch-latency=200 --param l1-cache-line-size=32 \
+		   -fsched-spec-load-dangerous -fpredictive-commoning \
+		   -fira-coalesce -funswitch-loops -ftree-loop-im -fipa-cp-clone -fivopts
 KBUILD_AFLAGS   := -D__ASSEMBLY__
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
