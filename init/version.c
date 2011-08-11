@@ -43,5 +43,5 @@ const char linux_banner[] =
 
 const char linux_proc_banner[] =
 	"%s version %s"
-	" (NEO_16-beast)"
+	" (NEO_16-beast-r2)"
 	" (" LINUX_COMPILER ") %s\n";
