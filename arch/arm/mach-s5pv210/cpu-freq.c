@@ -52,7 +52,7 @@ static unsigned int mpll_freq; /* in MHz */
 static unsigned int apll_freq_max; /* in MHz */
 static DEFINE_MUTEX(set_freq_lock);
 #define GPU_OC 0
-#define SMOOTH_STEPS 1
+#define SMOOTH_STEPS 0
 
 /* frequency */
 
@@ -78,7 +78,7 @@ unsigned int freq_uv_table[12][3] = {
 	{1700000,	1500,	1500},
 	{1600000,	1500,	1500},
 	{1500000,	1500,	1500},
-	{1440000,	1500,	1500},
+	{1440000,	1475,	1475},
 	{1400000,	1450,	1450},
 	{1300000,	1400,	1400},
 	{1200000,	1350,	1350},
@@ -94,10 +94,10 @@ unsigned int gpu[12][2] = {
 	//stock  current
 
 	//1700
-	{ 233, 233 },
+	{ 240, 240 },
 
 	//1600
-	{ 229, 229 },
+	{ 227, 227 },
 
 	//1500
 	{ 247, 247 },
@@ -206,7 +206,7 @@ static u32 clkdiv_val[12][11] = {
 	 * MFC, G3D }
 	 */
 	//L0:1700
-	{0, 6.3, 6.3, 1.3, 3, 1, 4, 1, 3, 0.15, 0.15},
+	{0, 6, 6, 1, 3, 1, 4, 1, 3, 0, 0},
 	//L1:1600
 	{0, 6, 6, 1, 3, 1, 4, 1, 3, 0, 0},
 	//L2: 1500
@@ -239,7 +239,7 @@ static struct s3c_freq clk_info[] = {
 		.hclk_tns   = 0,
 		.hclk	    = 133000,
 		.pclk       = 66000,
-                .hclk_msys  = 232876,
+                .hclk_msys  = 242857,
                 .pclk_msys  = 100000,
                 .hclk_dsys  = 166750,
                 .pclk_dsys  = 83375,
@@ -261,7 +261,7 @@ static struct s3c_freq clk_info[] = {
                 .hclk_tns   = 0,
                 .hclk       = 133000,
                 .pclk       = 66000,
-                .hclk_msys  = 246667,
+                .hclk_msys  = 246666,
                 .pclk_msys  = 100000,
                 .hclk_dsys  = 166750,
                 .pclk_dsys  = 83375
@@ -294,7 +294,7 @@ static struct s3c_freq clk_info[] = {
 		.hclk_tns   = 0,
 		.hclk       = 133000,
 		.pclk       = 66000,
-		.hclk_msys  = 216667,
+		.hclk_msys  = 216666,
 		.pclk_msys  = 100000,
 		.hclk_dsys  = 166750,
 		.pclk_dsys  = 83375,
@@ -1027,7 +1027,7 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
-	policy->cpuinfo.transition_latency = 40000; /* <1us */
+	policy->cpuinfo.transition_latency = 35000; /* <1us */
 
 	rate = clk_get_rate(mpu_clk);
 	i = 0;

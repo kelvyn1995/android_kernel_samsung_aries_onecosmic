@@ -1,2 +1,2 @@
 all:
-	cp built-in.443stock_samsung_modemctl built-in.o
+	cp built-in.2009q3_samsung_modemctl built-in.o

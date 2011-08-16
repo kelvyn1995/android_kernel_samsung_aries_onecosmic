@@ -227,12 +227,6 @@ config SAMSUNG_EPIC
 endchoice
 endif
 
-config DISABLE_PRINTK
-       bool "Disable Printk in Kernel"
-       depends on EXPERIMENTAL
-       help
-         Disable printk completely in the kernel to reduce overhead
-
 config S5PV210_SETUP_FB
 	bool
 	depends on FB_S3C
@@ -301,8 +295,9 @@ config SOC_LOW_LEAKAGE
 	help
 	  Define the SoC current leakage average value to adapt to different quality chips.
 
+
 config WIFI_CONTROL_FUNC
-       bool "Enable WiFi control function abstraction"
-       help
-         Enables Power/Reset/Carddetect function abstraction
+	bool "Enable WiFi control function abstraction"
+	help
+	  Enables Power/Reset/Carddetect function abstraction
 endif
