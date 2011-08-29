@@ -87,7 +87,7 @@ struct s5pv210_dvs_conf {
 
 #ifdef CONFIG_DVFS_LIMIT
 static unsigned int g_dvfs_high_lock_token = 0;
-static unsigned int g_dvfs_high_lock_limit = 4;
+static unsigned int g_dvfs_high_lock_limit = 7;
 static unsigned int g_dvfslockval[DVFS_LOCK_TOKEN_NUM];
 //static DEFINE_MUTEX(dvfs_high_lock);
 #endif
@@ -821,7 +821,7 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
-	policy->cpuinfo.transition_latency = 35000; /* <1us */
+	policy->cpuinfo.transition_latency = 40000; /* 40 us */
 
 	rate = clk_get_rate(mpu_clk);
 	i = 0;
@@ -862,7 +862,14 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 	if(unlikely(exp_UV_mV[level] < -50)) 
 		exp_UV_mV[level] = -50;
 
+//is dat some more uv?
 	previous_arm_volt = (dvs_conf[level].arm_volt - (exp_UV_mV[level]*1000));
+	freq_uv_table[level][2] = (int) previous_arm_volt / 1000;
+
+#ifdef CONFIG_DVFS_LIMIT
+	for (i = 0; i < DVFS_LOCK_TOKEN_NUM; i++)
+		g_dvfslockval[i] = MAX_PERF_LEVEL;
+#endif
 
 	cpufreq_frequency_table_cpuinfo(policy, freq_table);
 //Set initial max speed to 1ghz for people who don't want to overclock
