@@ -361,6 +361,7 @@ void jffs2_dirty_inode(struct inode *inode)
 {
 	struct iattr iattr;
 
+	/* XXX: huh? How does this make sense? */
 	if (!(inode->i_state & I_DIRTY_DATASYNC)) {
 		D2(printk(KERN_DEBUG "jffs2_dirty_inode() not calling setattr() for ino #%lu\n", inode->i_ino));
 		return;

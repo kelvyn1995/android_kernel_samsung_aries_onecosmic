@@ -108,3 +108,8 @@ extern void release_open_intent(struct nameidata *);
 extern int get_nr_dirty_inodes(void);
 extern void evict_inodes(struct super_block *);
 extern int invalidate_inodes(struct super_block *);
+
+/*
+ * fs-writeback.c
+ */
+extern void sync_inodes_sb(struct super_block *);

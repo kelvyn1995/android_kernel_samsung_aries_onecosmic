@@ -287,7 +287,10 @@ commit_metadata(struct svc_fh *fhp)
 
 	if (export_ops->commit_metadata)
 		return export_ops->commit_metadata(inode);
-	return sync_inode_metadata(inode, 1);
+	if (inode->i_op->sync_inode)
+		return inode->i_op->sync_inode(inode, INODE_SYNC_METADATA,
+						0, 0);
+	return sync_inode_metadata(inode, 0);
 }
 
 /*
@@ -969,10 +972,9 @@ static int wait_for_concurrent_writes(struct file *file)
 		dprintk("nfsd: write resume %d\n", task_pid_nr(current));
 	}
 
-	if (inode->i_state & I_DIRTY) {
-		dprintk("nfsd: write sync %d\n", task_pid_nr(current));
-		err = vfs_fsync(file, 0);
-	}
+	dprintk("nfsd: write sync %d\n", task_pid_nr(current));
+	err = vfs_fsync(file, 0);
+
 	last_ino = inode->i_ino;
 	last_dev = inode->i_sb->s_dev;
 	return err;

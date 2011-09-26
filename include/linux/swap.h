@@ -206,6 +206,7 @@ extern unsigned int nr_free_pagecache_pages(void);
 
 
 /* linux/mm/swap.c */
+extern void ____lru_cache_add(struct page *, enum lru_list lru, int tail);
 extern void __lru_cache_add(struct page *, enum lru_list lru);
 extern void lru_cache_add_lru(struct page *, enum lru_list lru);
 extern void activate_page(struct page *);
@@ -226,9 +227,14 @@ static inline void lru_cache_add_anon(struct page *page)
 	__lru_cache_add(page, LRU_INACTIVE_ANON);
 }
 
+static inline void lru_cache_add_file_tail(struct page *page, int tail)
+{
+	____lru_cache_add(page, LRU_INACTIVE_FILE, tail);
+}
+
 static inline void lru_cache_add_file(struct page *page)
 {
-	__lru_cache_add(page, LRU_INACTIVE_FILE);
+	____lru_cache_add(page, LRU_INACTIVE_FILE, 0);
 }
 
 /* LRU Isolation modes. */
@@ -345,20 +351,18 @@ extern struct mm_struct *swap_token_mm;
 extern void grab_swap_token(struct mm_struct *);
 extern void __put_swap_token(struct mm_struct *);
 
+/* Disable the swap token altogether. Not useful with zram. */
 static inline int has_swap_token(struct mm_struct *mm)
 {
-	return (mm == swap_token_mm);
+	return false;
 }
 
 static inline void put_swap_token(struct mm_struct *mm)
 {
-	if (has_swap_token(mm))
-		__put_swap_token(mm);
 }
 
 static inline void disable_swap_token(void)
 {
-	put_swap_token(swap_token_mm);
 }
 
 #ifdef CONFIG_CGROUP_MEM_RES_CTLR

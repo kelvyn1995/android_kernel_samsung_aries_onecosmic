@@ -15,6 +15,10 @@
 #define KMSG_COMPONENT "zram"
 #define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
 
+#ifdef CONFIG_ZRAM_DEBUG
+#define DEBUG
+#endif
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/bio.h>
@@ -194,8 +198,8 @@ static void handle_uncompressed_page(struct zram *zram,
 			zram->table[index].offset;
 
 	memcpy(user_mem, cmem, PAGE_SIZE);
-	kunmap_atomic(user_mem, KM_USER0);
 	kunmap_atomic(cmem, KM_USER1);
+	kunmap_atomic(user_mem, KM_USER0);
 
 	flush_dcache_page(page);
 }
@@ -227,6 +231,7 @@ static int zram_read(struct zram *zram, struct bio *bio)
 
 		if (zram_test_flag(zram, index, ZRAM_ZERO)) {
 			handle_zero_page(page);
+			index++;
 			continue;
 		}
 
@@ -234,13 +239,15 @@ static int zram_read(struct zram *zram, struct bio *bio)
 		if (unlikely(!zram->table[index].page)) {
 			pr_debug("Read before write: sector=%lu, size=%u",
 				(ulong)(bio->bi_sector), bio->bi_size);
-			/* Do nothing */
+			handle_zero_page(page);
+			index++;
 			continue;
 		}
 
 		/* Page is stored uncompressed since it's incompressible */
 		if (unlikely(zram_test_flag(zram, index, ZRAM_UNCOMPRESSED))) {
 			handle_uncompressed_page(zram, page, index);
+			index++;
 			continue;
 		}
 
@@ -255,8 +262,8 @@ static int zram_read(struct zram *zram, struct bio *bio)
 			xv_get_object_size(cmem) - sizeof(*zheader),
 			user_mem, &clen);
 
-		kunmap_atomic(user_mem, KM_USER0);
 		kunmap_atomic(cmem, KM_USER1);
+		kunmap_atomic(user_mem, KM_USER0);
 
 		/* Should NEVER happen. Return bio error if it does. */
 		if (unlikely(ret != LZO_E_OK)) {
@@ -312,14 +319,12 @@ static int zram_write(struct zram *zram, struct bio *bio)
 				zram_test_flag(zram, index, ZRAM_ZERO))
 			zram_free_page(zram, index);
 
-		mutex_lock(&zram->lock);
-
 		user_mem = kmap_atomic(page, KM_USER0);
 		if (page_zero_filled(user_mem)) {
 			kunmap_atomic(user_mem, KM_USER0);
-			mutex_unlock(&zram->lock);
 			zram_stat_inc(&zram->stats.pages_zero);
 			zram_set_flag(zram, index, ZRAM_ZERO);
+			index++;
 			continue;
 		}
 
@@ -329,7 +334,6 @@ static int zram_write(struct zram *zram, struct bio *bio)
 		kunmap_atomic(user_mem, KM_USER0);
 
 		if (unlikely(ret != LZO_E_OK)) {
-			mutex_unlock(&zram->lock);
 			pr_err("Compression failed! err=%d\n", ret);
 			zram_stat64_inc(zram, &zram->stats.failed_writes);
 			goto out;
@@ -344,7 +348,6 @@ static int zram_write(struct zram *zram, struct bio *bio)
 			clen = PAGE_SIZE;
 			page_store = alloc_page(GFP_NOIO | __GFP_HIGHMEM);
 			if (unlikely(!page_store)) {
-				mutex_unlock(&zram->lock);
 				pr_info("Error allocating memory for "
 					"incompressible page: %u\n", index);
 				zram_stat64_inc(zram,
@@ -363,7 +366,6 @@ static int zram_write(struct zram *zram, struct bio *bio)
 		if (xv_malloc(zram->mem_pool, clen + sizeof(*zheader),
 				&zram->table[index].page, &offset,
 				GFP_NOIO | __GFP_HIGHMEM)) {
-			mutex_unlock(&zram->lock);
 			pr_info("Error allocating memory for compressed "
 				"page: %u, size=%zu\n", index, clen);
 			zram_stat64_inc(zram, &zram->stats.failed_writes);
@@ -397,7 +399,6 @@ memstore:
 		if (clen <= PAGE_SIZE / 2)
 			zram_stat_inc(&zram->stats.good_compress);
 
-		mutex_unlock(&zram->lock);
 		index++;
 	}
 
@@ -443,11 +444,15 @@ static int zram_make_request(struct request_queue *queue, struct bio *bio)
 
 	switch (bio_data_dir(bio)) {
 	case READ:
+		down_read(&zram->lock);
 		ret = zram_read(zram, bio);
+		up_read(&zram->lock);
 		break;
 
 	case WRITE:
+		down_write(&zram->lock);
 		ret = zram_write(zram, bio);
+		up_write(&zram->lock);
 		break;
 	}
 
@@ -581,8 +586,7 @@ static int create_device(struct zram *zram, int device_id)
 {
 	int ret = 0;
 
-	mutex_init(&zram->lock);
-	mutex_init(&zram->init_lock);
+	init_rwsem(&zram->lock);
 	spin_lock_init(&zram->stat64_lock);
 
 	zram->queue = blk_alloc_queue(GFP_KERNEL);
@@ -621,7 +625,8 @@ static int create_device(struct zram *zram, int device_id)
 	 * and n*PAGE_SIZED sized I/O requests.
 	 */
 	blk_queue_physical_block_size(zram->disk->queue, PAGE_SIZE);
-	blk_queue_logical_block_size(zram->disk->queue, PAGE_SIZE);
+	blk_queue_logical_block_size(zram->disk->queue,
+					ZRAM_LOGICAL_BLOCK_SIZE);
 	blk_queue_io_min(zram->disk->queue, PAGE_SIZE);
 	blk_queue_io_opt(zram->disk->queue, PAGE_SIZE);
 

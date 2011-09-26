@@ -188,8 +188,19 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
-ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
+ARCH		?= arm
+#CROSS_COMPILE	?= ../../../prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
+#CROSS_COMPILE	?= /opt/toolchains/arm-2011.03/bin/arm-none-linux-gnueabi-
+#CROSS_COMPILE	?= /opt/toolchains/arm-2011.03/bin/arm-none-linux-gnueabi-
+#CROSS_COMPILE	?= /opt/toolchains/arm-2009q3_arm/bin/arm-none-eabi-
+#CROSS_COMPILE	?= /opt/toolchains/arm-2010q1/bin/arm-none-linux-gnueabi-
+#CROSS_COMPILE   ?= /opt/toolchains/android-toolchain-eabi_4.5-2011.07/bin/arm-eabi-
+CROSS_COMPILE   ?= /opt/toolchains/android-toolchain-eabi_4.5-2011.08/bin/arm-eabi-
+#CROSS_COMPILE   ?= /opt/toolchains/android-toolchain-eabi_4.6-2011.07/bin/arm-eabi-
+
+#export KBUILD_BUILDHOST := $(SUBARCH)
+#ARCH		?= $(SUBARCH)
+#CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -331,12 +342,12 @@ CHECK		= sparse
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-MODFLAGS	= -DMODULE
+MODFLAGS	= -DMODULE -O2 -mtune=cortex-a8 --param l2-cache-size=256 --param l1-cache-size=16 --param simultaneous-prefetches=8 --param prefetch-latency=200 --param l1-cache-line-size=32 -fsched-spec-load-dangerous -fpredictive-commoning -fira-coalesce -funswitch-loops -ftree-loop-im -fipa-cp-clone
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-CFLAGS_KERNEL	=
-AFLAGS_KERNEL	=
+CFLAGS_KERNEL	= -O2 -mtune=cortex-a8 --param l2-cache-size=256 --param l1-cache-size=16 --param simultaneous-prefetches=8 --param prefetch-latency=200 --param l1-cache-line-size=32 -fsched-spec-load-dangerous -fpredictive-commoning -fira-coalesce -funswitch-loops -ftree-loop-im -fipa-cp-clone
+AFLAGS_KERNEL	= -O2 -mtune=cortex-a8 --param l2-cache-size=256 --param l1-cache-size=16 --param simultaneous-prefetches=8 --param prefetch-latency=200 --param l1-cache-line-size=32 -fsched-spec-load-dangerous -fpredictive-commoning -fira-coalesce -funswitch-loops -ftree-loop-im -fipa-cp-clone
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
 
@@ -530,7 +541,7 @@ endif # $(dot-config)
 all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -Os
+KBUILD_CFLAGS	+= -O2
 else
 KBUILD_CFLAGS	+= -O2
 endif

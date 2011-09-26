@@ -49,8 +49,6 @@ static int submit(int rw, struct block_device *bdev, sector_t sector,
 	if (bio_chain == NULL) {
 		submit_bio(bio_rw, bio);
 		wait_on_page_locked(page);
-		if (rw == READ)
-			bio_set_pages_dirty(bio);
 		bio_put(bio);
 	} else {
 		if (rw == READ)

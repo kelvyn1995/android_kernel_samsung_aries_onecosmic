@@ -347,6 +347,15 @@ choice
 	prompt "RCU Implementation"
 	default TREE_RCU
 
+config CLASSIC_RCU
+	bool "Classic RCU"
+	help
+	  This option selects the classic RCU implementation that is
+	  designed for best read-side performance on non-realtime
+	  systems.
+
+	  Select this option if you are unsure.
+
 config TREE_RCU
 	bool "Tree-based hierarchical RCU"
 	depends on !PREEMPT && SMP
@@ -582,6 +591,16 @@ config CGROUP_FREEZER
 	  Provides a way to freeze and unfreeze all tasks in a
 	  cgroup.
 
+config CGROUP_TIMER_SLACK
+	tristate "Timer slack cgroup subsystem"
+	help
+	  Provides a way of tasks grouping by timer slack value.
+	  Introduces per cgroup timer slack value which will override
+	  the default timer slack value once a task is attached to a
+	  cgroup.
+	  It's useful in mobile devices where certain background apps
+	  are attached to a cgroup and combined wakeups are desired.
+
 config CGROUP_DEVICE
 	bool "Device controller for cgroups"
 	depends on CGROUPS && EXPERIMENTAL
@@ -720,6 +739,19 @@ config DEBUG_BLK_CGROUP
 	files in a cgroup which can be useful for debugging.
 
 endif # CGROUPS
+
+config SCHED_AUTOGROUP
+	bool "Automatic process group scheduling"
+	select EVENTFD
+	select CGROUPS
+	select CGROUP_SCHED
+	select FAIR_GROUP_SCHED
+	help
+	  This option optimizes the scheduler for common desktop workloads by
+	  automatically creating and populating task groups.  This separation
+	  of workloads isolates aggressive CPU burners (like build jobs) from
+	  desktop applications.  Task group autogeneration is currently based
+	  upon task session.
 
 config MM_OWNER
 	bool

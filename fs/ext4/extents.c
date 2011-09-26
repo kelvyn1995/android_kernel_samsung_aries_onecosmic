@@ -119,9 +119,15 @@ static ext4_fsblk_t ext4_ext_find_goal(struct inode *inode,
 
 		/* try to predict block placement */
 		ex = path[depth].p_ext;
-		if (ex)
-			return (ext4_ext_pblock(ex) +
-				(block - le32_to_cpu(ex->ee_block)));
+		if (ex) {
+			ext4_fsblk_t ext_pblk = ext4_ext_pblock(ex);
+			ext4_lblk_t ext_block = le32_to_cpu(ex->ee_block);
+
+			if (block > ext_block)
+				return (ext_pblk + (block - ext_block));
+			else
+				return (ext_pblk - (ext_block - block));
+		}
 
 		/* it looks like index is empty;
 		 * try to find starting block from index itself */
@@ -244,7 +250,7 @@ static inline int ext4_ext_space_root_idx(struct inode *inode, int check)
  * to allocate @blocks
  * Worse case is one block per extent
  */
-int ext4_ext_calc_metadata_amount(struct inode *inode, sector_t lblock)
+int ext4_ext_calc_metadata_amount(struct inode *inode, ext4_lblk_t lblock)
 {
 	struct ext4_inode_info *ei = EXT4_I(inode);
 	int idxs, num = 0;
@@ -1872,12 +1878,10 @@ static int ext4_ext_walk_space(struct inode *inode, ext4_lblk_t block,
 			cbex.ec_block = start;
 			cbex.ec_len = end - start;
 			cbex.ec_start = 0;
-			cbex.ec_type = EXT4_EXT_CACHE_GAP;
 		} else {
 			cbex.ec_block = le32_to_cpu(ex->ee_block);
 			cbex.ec_len = ext4_ext_get_actual_len(ex);
 			cbex.ec_start = ext4_ext_pblock(ex);
-			cbex.ec_type = EXT4_EXT_CACHE_EXTENT;
 		}
 
 		if (unlikely(cbex.ec_len == 0)) {
@@ -1917,13 +1921,12 @@ static int ext4_ext_walk_space(struct inode *inode, ext4_lblk_t block,
 
 static void
 ext4_ext_put_in_cache(struct inode *inode, ext4_lblk_t block,
-			__u32 len, ext4_fsblk_t start, int type)
+			__u32 len, ext4_fsblk_t start)
 {
 	struct ext4_ext_cache *cex;
 	BUG_ON(len == 0);
 	spin_lock(&EXT4_I(inode)->i_block_reservation_lock);
 	cex = &EXT4_I(inode)->i_cached_extent;
-	cex->ec_type = type;
 	cex->ec_block = block;
 	cex->ec_len = len;
 	cex->ec_start = start;
@@ -1976,15 +1979,18 @@ ext4_ext_put_gap_in_cache(struct inode *inode, struct ext4_ext_path *path,
 	}
 
 	ext_debug(" -> %u:%lu\n", lblock, len);
-	ext4_ext_put_in_cache(inode, lblock, len, 0, EXT4_EXT_CACHE_GAP);
+	ext4_ext_put_in_cache(inode, lblock, len, 0);
 }
 
+/*
+ * Return 0 if cache is invalid; 1 if the cache is valid
+ */
 static int
 ext4_ext_in_cache(struct inode *inode, ext4_lblk_t block,
 			struct ext4_extent *ex)
 {
 	struct ext4_ext_cache *cex;
-	int ret = EXT4_EXT_CACHE_NO;
+	int ret = 0;
 
 	/*
 	 * We borrow i_block_reservation_lock to protect i_cached_extent
@@ -1993,11 +1999,9 @@ ext4_ext_in_cache(struct inode *inode, ext4_lblk_t block,
 	cex = &EXT4_I(inode)->i_cached_extent;
 
 	/* has cache valid data? */
-	if (cex->ec_type == EXT4_EXT_CACHE_NO)
+	if (cex->ec_len == 0)
 		goto errout;
 
-	BUG_ON(cex->ec_type != EXT4_EXT_CACHE_GAP &&
-			cex->ec_type != EXT4_EXT_CACHE_EXTENT);
 	if (in_range(block, cex->ec_block, cex->ec_len)) {
 		ex->ee_block = cpu_to_le32(cex->ec_block);
 		ext4_ext_store_pblock(ex, cex->ec_start);
@@ -2005,7 +2009,7 @@ ext4_ext_in_cache(struct inode *inode, ext4_lblk_t block,
 		ext_debug("%u cached by %u:%u:%llu\n",
 				block,
 				cex->ec_block, cex->ec_len, cex->ec_start);
-		ret = cex->ec_type;
+		ret = 1;
 	}
 errout:
 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
@@ -3082,7 +3086,7 @@ static void unmap_underlying_metadata_blocks(struct block_device *bdev,
  * Handle EOFBLOCKS_FL flag, clearing it if necessary
  */
 static int check_eofblocks_fl(handle_t *handle, struct inode *inode,
-			      struct ext4_map_blocks *map,
+			      ext4_lblk_t lblk,
 			      struct ext4_ext_path *path,
 			      unsigned int len)
 {
@@ -3112,7 +3116,7 @@ static int check_eofblocks_fl(handle_t *handle, struct inode *inode,
 	 * this turns out to be false, we can bail out from this
 	 * function immediately.
 	 */
-	if (map->m_lblk + len < le32_to_cpu(last_ex->ee_block) +
+	if (lblk + len < le32_to_cpu(last_ex->ee_block) +
 	    ext4_ext_get_actual_len(last_ex))
 		return 0;
 	/*
@@ -3168,8 +3172,8 @@ ext4_ext_handle_uninitialized_extents(handle_t *handle, struct inode *inode,
 							path);
 		if (ret >= 0) {
 			ext4_update_inode_fsync_trans(handle, inode, 1);
-			err = check_eofblocks_fl(handle, inode, map, path,
-						 map->m_len);
+			err = check_eofblocks_fl(handle, inode, map->m_lblk,
+						 path, map->m_len);
 		} else
 			err = ret;
 		goto out2;
@@ -3199,7 +3203,8 @@ ext4_ext_handle_uninitialized_extents(handle_t *handle, struct inode *inode,
 	ret = ext4_ext_convert_to_initialized(handle, inode, map, path);
 	if (ret >= 0) {
 		ext4_update_inode_fsync_trans(handle, inode, 1);
-		err = check_eofblocks_fl(handle, inode, map, path, map->m_len);
+		err = check_eofblocks_fl(handle, inode, map->m_lblk, path,
+					 map->m_len);
 		if (err < 0)
 			goto out2;
 	}
@@ -3276,7 +3281,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 	struct ext4_extent_header *eh;
 	struct ext4_extent newex, *ex;
 	ext4_fsblk_t newblock;
-	int err = 0, depth, ret, cache_type;
+	int err = 0, depth, ret;
 	unsigned int allocated = 0;
 	struct ext4_allocation_request ar;
 	ext4_io_end_t *io = EXT4_I(inode)->cur_aio_dio;
@@ -3285,9 +3290,8 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 		  map->m_lblk, map->m_len, inode->i_ino);
 
 	/* check in cache */
-	cache_type = ext4_ext_in_cache(inode, map->m_lblk, &newex);
-	if (cache_type) {
-		if (cache_type == EXT4_EXT_CACHE_GAP) {
+	if (ext4_ext_in_cache(inode, map->m_lblk, &newex)) {
+		if (!newex.ee_start_lo && !newex.ee_start_hi) {
 			if ((flags & EXT4_GET_BLOCKS_CREATE) == 0) {
 				/*
 				 * block isn't allocated yet and
@@ -3296,7 +3300,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 				goto out2;
 			}
 			/* we should allocate requested block */
-		} else if (cache_type == EXT4_EXT_CACHE_EXTENT) {
+		} else {
 			/* block is already allocated */
 			newblock = map->m_lblk
 				   - le32_to_cpu(newex.ee_block)
@@ -3305,8 +3309,6 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 			allocated = ext4_ext_get_actual_len(&newex) -
 				(map->m_lblk - le32_to_cpu(newex.ee_block));
 			goto out;
-		} else {
-			BUG();
 		}
 	}
 
@@ -3357,8 +3359,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 			/* Do not put uninitialized extent in the cache */
 			if (!ext4_ext_is_uninitialized(ex)) {
 				ext4_ext_put_in_cache(inode, ee_block,
-							ee_len, ee_start,
-							EXT4_EXT_CACHE_EXTENT);
+							ee_len, ee_start);
 				goto out;
 			}
 			ret = ext4_ext_handle_uninitialized_extents(handle,
@@ -3456,7 +3457,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 			map->m_flags |= EXT4_MAP_UNINIT;
 	}
 
-	err = check_eofblocks_fl(handle, inode, map, path, ar.len);
+	err = check_eofblocks_fl(handle, inode, map->m_lblk, path, ar.len);
 	if (err)
 		goto out2;
 
@@ -3490,8 +3491,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 	 * when it is _not_ an uninitialized extent.
 	 */
 	if ((flags & EXT4_GET_BLOCKS_UNINIT_EXT) == 0) {
-		ext4_ext_put_in_cache(inode, map->m_lblk, allocated, newblock,
-						EXT4_EXT_CACHE_EXTENT);
+		ext4_ext_put_in_cache(inode, map->m_lblk, allocated, newblock);
 		ext4_update_inode_fsync_trans(handle, inode, 1);
 	} else
 		ext4_update_inode_fsync_trans(handle, inode, 0);
@@ -3517,6 +3517,12 @@ void ext4_ext_truncate(struct inode *inode)
 	ext4_lblk_t last_block;
 	handle_t *handle;
 	int err = 0;
+
+	/*
+	 * finish any pending end_io work so we won't run the risk of
+	 * converting any truncated blocks to initialized later
+	 */
+	ext4_flush_completed_IO(inode);
 
 	/*
 	 * probably first extent we're gonna free will be last in block
@@ -3767,7 +3773,7 @@ static int ext4_ext_fiemap_cb(struct inode *inode, struct ext4_ext_path *path,
 
 	logical =  (__u64)newex->ec_block << blksize_bits;
 
-	if (newex->ec_type == EXT4_EXT_CACHE_GAP) {
+	if (newex->ec_start == 0) {
 		pgoff_t offset;
 		struct page *page;
 		struct buffer_head *bh = NULL;

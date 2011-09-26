@@ -176,12 +176,24 @@ static int ocfs2_sync_file(struct file *file, int datasync)
 	journal_t *journal;
 	struct inode *inode = file->f_mapping->host;
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
+	unsigned dirty, mask;
 
 	mlog_entry("(0x%p, %d, 0x%p, '%.*s')\n", file, datasync,
 		   file->f_path.dentry, file->f_path.dentry->d_name.len,
 		   file->f_path.dentry->d_name.name);
 
-	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC)) {
+	spin_lock(&inode_lock);
+	inode_writeback_begin(inode, 1);
+	if (datasync)
+		mask = I_DIRTY_DATASYNC;
+	else
+		mask = I_DIRTY_SYNC | I_DIRTY_DATASYNC;
+	dirty = inode->i_state & mask;
+	inode->i_state &= ~mask;
+	spin_unlock(&inode_lock);
+
+	if (datasync && dirty) {
+
 		/*
 		 * We still have to flush drive's caches to get data to the
 		 * platter
@@ -195,6 +207,12 @@ static int ocfs2_sync_file(struct file *file, int datasync)
 	err = jbd2_journal_force_commit(journal);
 
 bail:
+	spin_lock(&inode_lock);
+	if (err)
+		inode->i_state |= dirty;
+	inode_writeback_end(inode);
+	spin_unlock(&inode_lock);
+
 	mlog_exit(err);
 
 	return (err < 0) ? -EIO : 0;

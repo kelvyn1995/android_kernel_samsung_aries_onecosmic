@@ -373,6 +373,7 @@ static int pohmelfs_write_inode_create_children(struct inode *inode)
 		dprintk("%s: parent: %llu, ino: %llu, inode: %p.\n",
 				__func__, parent->ino, n->ino, inode);
 
+		/* XXX: is this race WRT writeback? */
 		if (inode && (inode->i_state & I_DIRTY)) {
 			struct pohmelfs_inode *pi = POHMELFS_I(inode);
 			pohmelfs_write_create_inode(pi);
@@ -883,7 +884,7 @@ static int pohmelfs_fsync(struct file *file, int datasync)
 {
 	struct inode *inode = file->f_mapping->host;
 
-	return sync_inode_metadata(inode, 1);
+	return sync_inode_metadata(inode, datasync);
 }
 
 ssize_t pohmelfs_write(struct file *file, const char __user *buf,
@@ -1950,7 +1951,7 @@ static struct dentry *pohmelfs_mount(struct file_system_type *fs_type,
  */
 static void pohmelfs_kill_super(struct super_block *sb)
 {
-	sync_inodes_sb(sb);
+	sync_filesystem(sb);
 	kill_anon_super(sb);
 }
 

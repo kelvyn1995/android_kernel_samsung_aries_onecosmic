@@ -19,6 +19,7 @@
 
 #include <linux/mm.h>
 #include <linux/fs.h>
+#include <linux/writeback.h>
 #include <linux/quotaops.h>
 #include "jfs_incore.h"
 #include "jfs_inode.h"
@@ -31,18 +32,34 @@
 int jfs_fsync(struct file *file, int datasync)
 {
 	struct inode *inode = file->f_mapping->host;
-	int rc = 0;
+	unsigned dirty, mask;
+	int err = 0;
 
-	if (!(inode->i_state & I_DIRTY) ||
-	    (datasync && !(inode->i_state & I_DIRTY_DATASYNC))) {
+	spin_lock(&inode_lock);
+	inode_writeback_begin(inode, 1);
+
+	if (datasync)
+		mask = I_DIRTY_DATASYNC;
+	else
+		mask = I_DIRTY_SYNC | I_DIRTY_DATASYNC;
+	dirty = inode->i_state & mask;
+	inode->i_state &= ~mask;
+	spin_unlock(&inode_lock);
+
+	if (!dirty) {
 		/* Make sure committed changes hit the disk */
 		jfs_flush_journal(JFS_SBI(inode->i_sb)->log, 1);
-		return rc;
+	} else {
+		err = jfs_commit_inode(inode, 1);
 	}
 
-	rc |= jfs_commit_inode(inode, 1);
+	spin_lock(&inode_lock);
+	if (err)
+		inode->i_state |= dirty;
+	inode_writeback_end(inode);
+	spin_unlock(&inode_lock);
 
-	return rc ? -EIO : 0;
+	return err ? -EIO : 0;
 }
 
 static int jfs_open(struct inode *inode, struct file *file)

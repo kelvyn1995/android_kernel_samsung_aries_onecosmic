@@ -284,7 +284,7 @@ static struct s3cfb_lcd s6e63m0 = {
 	.p_width = 52,
 	.p_height = 86,
 	.bpp = 24,
-	.freq = 60,
+	.freq = 68,
 
 	.timing = {
 		.h_fp = 16,
@@ -304,16 +304,16 @@ static struct s3cfb_lcd s6e63m0 = {
 	},
 };
 
-#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC0 (12288 * SZ_1K)
-#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC1 (9900 * SZ_1K)
-#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC2 (12288 * SZ_1K)
+#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC0 (11264 * SZ_1K)
+#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC1 (5000 * SZ_1K)
+#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMC2 (11264 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_MFC0 (32768 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_MFC1 (32768 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_FIMD (S5PV210_LCD_WIDTH * \
 					     S5PV210_LCD_HEIGHT * 4 * \
 					     CONFIG_FB_S3C_NR_BUFFERS)
-#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_JPEG (8192 * SZ_1K)
-#define  S5PV210_ANDROID_PMEM_MEMSIZE_PMEM (5550 * SZ_1K)
+#define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_JPEG (4096 * SZ_1K)
+#define  S5PV210_ANDROID_PMEM_MEMSIZE_PMEM (2048 * SZ_1K)
 #define  S5PV210_ANDROID_PMEM_MEMSIZE_PMEM_GPU1 (3000 * SZ_1K)
 #define  S5PV210_ANDROID_PMEM_MEMSIZE_PMEM_ADSP (1500 * SZ_1K)
 #define  S5PV210_VIDEO_SAMSUNG_MEMSIZE_TEXTSTREAM (3000 * SZ_1K)
@@ -1217,8 +1217,8 @@ static const int touch_keypad_code[] = {
 #if defined (CONFIG_SAMSUNG_GALAXYS) || defined (CONFIG_SAMSUNG_GALAXYSB)
 	KEY_MENU,
 	KEY_BACK,
-	0,
-	0
+	KEY_HOME,
+	KEY_SEARCH
 #else
 	KEY_MENU,
 	KEY_HOME,
@@ -1369,7 +1369,7 @@ static void sec_jack_set_micbias_state(bool on)
 
 static struct wm8994_platform_data wm8994_pdata = {
 	.ldo = GPIO_CODEC_LDO_EN,
-        .ear_sel = GPIO_EARPATH_SEL,
+	.ear_sel = -1,
 	.set_mic_bias = wm8994_set_mic_bias,
 };
 
@@ -2750,9 +2750,9 @@ static struct sec_jack_buttons_zone sec_jack_buttons_zones[] = {
 	},
 #else
 	{
-		/* 300 <= adc <=1000, stable zone */
+		/* 0 <= adc <=1000, stable zone */
 		.code		= KEY_MEDIA,
-		.adc_low	= 300,
+		.adc_low	= 0,
 		.adc_high	= 1000,
 	},
 #endif

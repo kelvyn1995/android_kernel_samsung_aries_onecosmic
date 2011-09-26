@@ -1313,11 +1313,9 @@ int ubifs_fsync(struct file *file, int datasync)
 	 * VFS has already synchronized dirty pages for this inode. Synchronize
 	 * the inode unless this is a 'datasync()' call.
 	 */
-	if (!datasync || (inode->i_state & I_DIRTY_DATASYNC)) {
-		err = inode->i_sb->s_op->write_inode(inode, NULL);
-		if (err)
-			return err;
-	}
+	err = sync_inode_metadata(inode, datasync);
+	if (err)
+		return err;
 
 	/*
 	 * Nodes related to this inode may still sit in a write-buffer. Flush

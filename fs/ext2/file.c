@@ -21,6 +21,7 @@
 #include <linux/time.h>
 #include <linux/pagemap.h>
 #include <linux/quotaops.h>
+#include <linux/buffer_head.h>
 #include "ext2.h"
 #include "xattr.h"
 #include "acl.h"
@@ -42,18 +43,12 @@ static int ext2_release_file (struct inode * inode, struct file * filp)
 
 int ext2_fsync(struct file *file, int datasync)
 {
-	int ret;
-	struct super_block *sb = file->f_mapping->host->i_sb;
-	struct address_space *mapping = sb->s_bdev->bd_inode->i_mapping;
+	struct inode *inode = file->f_mapping->host;
+	unsigned int flags = INODE_SYNC_DATA;
+	if (!datasync)
+		flags |= INODE_SYNC_METADATA;
 
-	ret = generic_file_fsync(file, datasync);
-	if (ret == -EIO || test_and_clear_bit(AS_EIO, &mapping->flags)) {
-		/* We don't really know where the IO error happened... */
-		ext2_error(sb, __func__,
-			   "detected IO error when writing metadata buffers");
-		ret = -EIO;
-	}
-	return ret;
+	return ext2_sync_inode(inode, flags, 0, LLONG_MAX);
 }
 
 /*
@@ -104,4 +99,5 @@ const struct inode_operations ext2_file_inode_operations = {
 	.setattr	= ext2_setattr,
 	.check_acl	= ext2_check_acl,
 	.fiemap		= ext2_fiemap,
+	.sync_inode	= ext2_sync_inode,
 };

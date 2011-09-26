@@ -61,12 +61,11 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{0, CPUFREQ_TABLE_END},
 };
 
-extern int exp_UV_mV[8]; //Needed for uv
-unsigned int freq_uv_table[6][3] = {
+extern int exp_UV_mV[5]; //Needed for uv
+unsigned int freq_uv_table[5][3] = {
 	//freq, stock, current
 	{1000000,	1250,	1250},
 	{800000,	1200,	1200},
-	{600000,	1150,	1150},
 	{400000,	1050,	1050},
 	{200000,	950,	950},
 	{100000,	950,	950},
@@ -785,19 +784,27 @@ static int __init s5pv210_cpufreq_driver_init(struct cpufreq_policy *policy)
 static int s5pv210_cpufreq_notifier_event(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
+	static int max, min;
 	int ret;
+
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		ret = cpufreq_driver_target(cpufreq_cpu_get(0), SLEEP_FREQ,
+		max = policy->max;
+		min = policy->min;
+		policy->max = policy->min = SLEEP_FREQ;
+		ret = cpufreq_driver_target(policy, SLEEP_FREQ,
 				DISABLE_FURTHER_CPUFREQ);
 		if (ret < 0)
 			return NOTIFY_BAD;
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
-		cpufreq_driver_target(cpufreq_cpu_get(0), SLEEP_FREQ,
+		cpufreq_driver_target(policy, SLEEP_FREQ,
 				ENABLE_FURTHER_CPUFREQ);
+		policy->max = max;
+		policy->min = min;
 		return NOTIFY_OK;
 	}
 	return NOTIFY_DONE;
