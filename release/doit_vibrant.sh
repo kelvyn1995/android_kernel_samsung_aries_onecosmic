@@ -14,7 +14,7 @@ RELVER=$2
 [[ "$RELVER" == '' ]] && RELVER="0"
 
 #REL=CM7_${TYPE}_$(date +%Y%m%d-%H)_platypus.zip
-REL=CM7_${TYPE}_$(date +%Y%m%d)_NEO_17-voodoo-col.zip
+REL=CM7_${TYPE}_$(date +%Y%m%d)_NEO_17-voodoo-col_BLN.zip
 
 rm -r release/system 2> /dev/null
 mkdir  -p release/system/lib/modules || exit 1
@@ -26,8 +26,8 @@ find . -name "*.ko" -exec cp {} release/system/lib/modules/ \; 2>/dev/null || ex
 cd release && {
 	cp 91logger system/etc/init.d/ || exit 1
 	cp S98system_tweak system/etc/init.d/ || exit 1
-	cp lights.aries.so system/lib/hw/ || exit 1
-#        cp lights.aries.so.BLN system/lib/hw/lights.aries.so || exit 1
+#	cp lights.aries.so system/lib/hw/ || exit 1
+        cp lights.aries.so.BLN system/lib/hw/lights.aries.so || exit 1
 	mkdir -p system/bin
 	cp bin/* system/bin/
 	zip -q -r ${REL} system boot.img META-INF bml_over_mtd bml_over_mtd.sh || exit 1
