@@ -44,4 +44,5 @@ echo ${REL}
 rm system/lib/modules/*
 rm system/lib/hw/*
 rm system/etc/init.d/*
+rm system/bin/*
 exit 0
