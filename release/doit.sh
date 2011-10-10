@@ -33,7 +33,7 @@ cd release && {
 	cp bin/rild_old system/bin/rild
 	cp libril.so_old system/lib/libril.so
 	cp libsecril-client.so_old system/lib/libsecril-client.so
-	zip -q -r ${REL} system boot.img META-INF bml_over_mtd bml_over_mtd.sh || exit 1
+	zip -q -r ${REL} system boot.img META-INF erase_image flash_image bml_over_mtd bml_over_mtd.sh || exit 1
 	sha256sum ${REL} > ${REL}.sha256sum
 	rm -rf ${TYPE} || exit 1
 	mkdir -p ${TYPE} || exit 1
