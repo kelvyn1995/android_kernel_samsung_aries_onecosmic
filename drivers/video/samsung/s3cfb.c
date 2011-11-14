@@ -107,8 +107,7 @@ static int s3cfb_draw_logo(struct fb_info *fb)
 	}
 #else /*CONFIG_SAMSUNG_GALAXYS*/
 
-	memcpy(fb->screen_base, LOGO_RGB24,
-				fb->var.yres * fb->fix.line_length);
+		memcpy(fb->screen_base, LOGO_RGB24, fb->var.yres * fb->fix.line_length);
 #endif
 	return 0;
 }

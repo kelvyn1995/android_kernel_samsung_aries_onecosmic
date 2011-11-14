@@ -160,7 +160,6 @@ int fat_file_fsync(struct file *filp, int datasync)
 	return res ? res : err;
 }
 
-
 const struct file_operations fat_file_operations = {
 	.llseek		= generic_file_llseek,
 	.read		= do_sync_read,
@@ -192,22 +191,9 @@ static int fat_cont_expand(struct inode *inode, loff_t size)
 	if (IS_SYNC(inode)) {
 		int err2;
 
-		/*
-		 * Opencode syncing since we don't have a file open to use
-		 * standard fsync path.
-		 */
-		err = filemap_fdatawrite_range(mapping, start,
-					       start + count - 1);
-		err2 = sync_mapping_buffers(mapping);
-		if (!err)
-			err = err2;
-		err2 = write_inode_now(inode, 1);
-		if (!err)
-			err = err2;
-		if (!err) {
-			err =  filemap_fdatawait_range(mapping, start,
-						       start + count - 1);
-		}
+		err = inode->i_op->sync_inode(inode,
+				INODE_SYNC_DATA | INODE_SYNC_DATA_METADATA |
+				INODE_SYNC_METADATA, start, start + count - 1);
 	}
 out:
 	return err;
@@ -440,7 +426,20 @@ out:
 }
 EXPORT_SYMBOL_GPL(fat_setattr);
 
+static int fat_inode_sync_inode(struct inode *inode, unsigned int flags,
+			loff_t start, loff_t end)
+{
+	int err;
+
+	err = generic_sync_inode(inode, flags, start, end);
+	if (err)
+		return err;
+	err = sync_mapping_buffers(MSDOS_SB(inode->i_sb)->fat_inode->i_mapping);
+	return err;
+}
+
 const struct inode_operations fat_file_inode_operations = {
 	.setattr	= fat_setattr,
 	.getattr	= fat_getattr,
+	.sync_inode	= fat_inode_sync_inode,
 };

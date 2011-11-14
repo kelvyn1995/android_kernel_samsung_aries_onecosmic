@@ -200,41 +200,12 @@ static void bio_end_flush(struct bio *bio, int err)
 	bio_put(bio);
 }
 
-/**
- * blkdev_issue_flush - queue a flush
- * @bdev:	blockdev to issue flush for
- * @gfp_mask:	memory allocation flags (for bio_alloc)
- * @error_sector:	error sector
- *
- * Description:
- *    Issue a flush for the block device in question. Caller can supply
- *    room for storing the error offset in case of a flush error, if they
- *    wish to. If WAIT flag is not passed then caller may check only what
- *    request was pushed in some internal queue for later handling.
- */
-int blkdev_issue_flush(struct block_device *bdev, gfp_t gfp_mask,
-		sector_t *error_sector)
+static int blkdev_issue_flush_now(struct block_device *bdev,
+		gfp_t gfp_mask, sector_t *error_sector)
 {
 	DECLARE_COMPLETION_ONSTACK(wait);
-	struct request_queue *q;
 	struct bio *bio;
 	int ret = 0;
-
-	if (bdev->bd_disk == NULL)
-		return -ENXIO;
-
-	q = bdev_get_queue(bdev);
-	if (!q)
-		return -ENXIO;
-
-	/*
-	 * some block devices may not have their queue correctly set up here
-	 * (e.g. loop device without a backing file) and so issuing a flush
-	 * here will panic. Ensure there is a request function before issuing
-	 * the flush.
-	 */
-	if (!q->make_request_fn)
-		return -ENXIO;
 
 	bio = bio_alloc(gfp_mask, 0);
 	bio->bi_end_io = bio_end_flush;
@@ -251,12 +222,136 @@ int blkdev_issue_flush(struct block_device *bdev, gfp_t gfp_mask,
 	 * copied from blk_rq_pos(rq).
 	 */
 	if (error_sector)
-               *error_sector = bio->bi_sector;
+		*error_sector = bio->bi_sector;
 
 	if (!bio_flagged(bio, BIO_UPTODATE))
 		ret = -EIO;
 
 	bio_put(bio);
+	return ret;
+}
+
+struct flush_completion_t *alloc_flush_completion(gfp_t gfp_mask)
+{
+	struct flush_completion_t *t;
+
+	t = kzalloc(sizeof(*t), gfp_mask);
+	if (!t)
+		return t;
+
+	init_completion(&t->ready);
+	init_completion(&t->finish);
+	kref_init(&t->ref);
+
+	return t;
+}
+
+void free_flush_completion(struct kref *ref)
+{
+	struct flush_completion_t *f;
+
+	f = container_of(ref, struct flush_completion_t, ref);
+	kfree(f);
+}
+
+/**
+ * blkdev_issue_flush - queue a flush
+ * @bdev:	blockdev to issue flush for
+ * @gfp_mask:	memory allocation flags (for bio_alloc)
+ * @error_sector:	error sector
+ *
+ * Description:
+ *    Issue a flush for the block device in question. Caller can supply
+ *    room for storing the error offset in case of a flush error, if they
+ *    wish to. If WAIT flag is not passed then caller may check only what
+ *    request was pushed in some internal queue for later handling.
+ */
+int blkdev_issue_flush(struct block_device *bdev, gfp_t gfp_mask,
+		sector_t *error_sector)
+{
+	struct flush_completion_t *flush, *new_flush;
+	struct request_queue *q;
+	struct gendisk *disk;
+	int ret = 0;
+
+	disk = bdev->bd_disk;
+	if (disk == NULL)
+		return -ENXIO;
+
+	q = bdev_get_queue(bdev);
+	if (!q)
+		return -ENXIO;
+
+	if (!(q->flush_flags & REQ_FLUSH))
+		return -ENXIO;
+
+	/*
+	 * some block devices may not have their queue correctly set up here
+	 * (e.g. loop device without a backing file) and so issuing a flush
+	 * here will panic. Ensure there is a request function before issuing
+	 * the flush.
+	 */
+	if (!q->make_request_fn)
+		return -ENXIO;
+
+	/* coordinate flushes */
+	new_flush = alloc_flush_completion(gfp_mask);
+	if (!new_flush)
+		return -ENOMEM;
+
+again:
+	spin_lock(&disk->flush_flag_lock);
+	if (disk->in_flush) {
+		/* Flush in progress */
+		kref_get(&disk->next_flush->ref);
+		flush = disk->next_flush;
+		ret = atomic_read(&flush->waiters);
+		atomic_inc(&flush->waiters);
+		spin_unlock(&disk->flush_flag_lock);
+
+		/*
+		 * If there aren't any waiters, this thread will be woken
+		 * up to start the next flush.
+		 */
+		if (!ret) {
+			wait_for_completion(&flush->ready);
+			kref_put(&flush->ref, free_flush_completion);
+			goto again;
+		}
+
+		/* Otherwise, just wait for this flush to end. */
+		ret = wait_for_completion_killable(&flush->finish);
+		if (!ret)
+			ret = flush->ret;
+		kref_put(&flush->ref, free_flush_completion);
+		kref_put(&new_flush->ref, free_flush_completion);
+	} else {
+		/* no flush in progress */
+		flush = disk->next_flush;
+		disk->next_flush = new_flush;
+		disk->in_flush = 1;
+		spin_unlock(&disk->flush_flag_lock);
+
+		ret = blkdev_issue_flush_now(bdev, gfp_mask, error_sector);
+		flush->ret = ret;
+
+		/* Wake up the thread that starts the next flush. */
+		spin_lock(&disk->flush_flag_lock);
+		disk->in_flush = 0;
+		/*
+		 * This line must be between the zeroing of in_flush and the
+		 * spin_unlock because we don't want the next-flush thread to
+		 * start messing with pointers until we're safely out of this
+		 * section.  It must be the first complete_all, because on some
+		 * fast devices, the next flush finishes (and frees
+		 * next_flush!) before the second complete_all finishes!
+		 */
+		complete_all(&new_flush->ready);
+		spin_unlock(&disk->flush_flag_lock);
+
+		complete_all(&flush->finish);
+		kref_put(&flush->ref, free_flush_completion);
+	}
 	return ret;
 }
 EXPORT_SYMBOL(blkdev_issue_flush);

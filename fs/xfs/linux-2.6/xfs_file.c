@@ -99,6 +99,7 @@ xfs_file_fsync(
 	struct xfs_trans	*tp;
 	int			error = 0;
 	int			log_flushed = 0;
+	unsigned		dirty, mask;
 
 	trace_xfs_file_fsync(ip);
 
@@ -108,6 +109,25 @@ xfs_file_fsync(
 	xfs_iflags_clear(ip, XFS_ITRUNCATED);
 
 	xfs_ioend_wait(ip);
+
+	/*
+	 * First check if the VFS inode is marked dirty.  All the dirtying
+	 * of non-transactional updates no goes through mark_inode_dirty*,
+	 * which allows us to distinguish beteeen pure timestamp updates
+	 * and i_size updates which need to be caught for fdatasync.
+	 * After that also theck for the dirty state in the XFS inode, which
+	 * might gets cleared when the inode gets written out via the AIL
+	 * or xfs_iflush_cluster.
+	 */
+	spin_lock(&inode_lock);
+	inode_writeback_begin(inode, 1);
+	if (datasync)
+		mask = I_DIRTY_DATASYNC;
+	else
+		mask = I_DIRTY_SYNC | I_DIRTY_DATASYNC;
+	dirty = inode->i_state & mask;
+	inode->i_state &= ~mask;
+	spin_unlock(&inode_lock);
 
 	/*
 	 * We always need to make sure that the required inode state is safe on
@@ -123,18 +143,7 @@ xfs_file_fsync(
 	 */
 	xfs_ilock(ip, XFS_ILOCK_SHARED);
 
-	/*
-	 * First check if the VFS inode is marked dirty.  All the dirtying
-	 * of non-transactional updates no goes through mark_inode_dirty*,
-	 * which allows us to distinguish beteeen pure timestamp updates
-	 * and i_size updates which need to be caught for fdatasync.
-	 * After that also theck for the dirty state in the XFS inode, which
-	 * might gets cleared when the inode gets written out via the AIL
-	 * or xfs_iflush_cluster.
-	 */
-	if (((inode->i_state & I_DIRTY_DATASYNC) ||
-	    ((inode->i_state & I_DIRTY_SYNC) && !datasync)) &&
-	    ip->i_update_core) {
+	if (dirty && ip->i_update_core) {
 		/*
 		 * Kick off a transaction to log the inode core to get the
 		 * updates.  The sync transaction will also force the log.
@@ -145,7 +154,7 @@ xfs_file_fsync(
 				XFS_FSYNC_TS_LOG_RES(ip->i_mount), 0, 0, 0);
 		if (error) {
 			xfs_trans_cancel(tp, 0);
-			return -error;
+			goto out;
 		}
 		xfs_ilock(ip, XFS_ILOCK_EXCL);
 
@@ -196,6 +205,13 @@ xfs_file_fsync(
 		if (XFS_IS_REALTIME_INODE(ip))
 			xfs_blkdev_issue_flush(ip->i_mount->m_rtdev_targp);
 	}
+
+out:
+	spin_lock(&inode_lock);
+	if (error)
+		inode->i_state |= dirty;
+	inode_writeback_end(inode);
+	spin_unlock(&inode_lock);
 
 	return -error;
 }

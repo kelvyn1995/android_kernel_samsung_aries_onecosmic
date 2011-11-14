@@ -116,6 +116,10 @@ EXPORT_SYMBOL(cad_pid);
 
 void (*pm_power_off_prepare)(void);
 
+int (*timer_slack_check)(struct task_struct *task, unsigned long slack_ns) =
+	NULL;
+EXPORT_SYMBOL_GPL(timer_slack_check);
+
 /*
  * set the priority of a task
  * - the caller must hold the RCU read lock
@@ -1080,8 +1084,10 @@ SYSCALL_DEFINE0(setsid)
 	err = session;
 out:
 	write_unlock_irq(&tasklist_lock);
-	if (err > 0)
+	if (err > 0) {
 		proc_sid_connector(group_leader);
+		sched_autogroup_create_attach(group_leader);
+	}
 	return err;
 }
 
@@ -1377,7 +1383,8 @@ static int check_prlimit_permission(struct task_struct *task)
 	const struct cred *cred = current_cred(), *tcred;
 
 	tcred = __task_cred(task);
-	if ((cred->uid != tcred->euid ||
+	if (current != task &&
+	    (cred->uid != tcred->euid ||
 	     cred->uid != tcred->suid ||
 	     cred->uid != tcred->uid  ||
 	     cred->gid != tcred->egid ||
@@ -1685,12 +1692,15 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			error = current->timer_slack_ns;
 			break;
 		case PR_SET_TIMERSLACK:
-			if (arg2 <= 0)
-				current->timer_slack_ns =
-					current->default_timer_slack_ns;
-			else
-				current->timer_slack_ns = arg2;
-			error = 0;
+			if (arg2 <= 0) {
+				me->timer_slack_ns = me->default_timer_slack_ns;
+				break;
+			}
+
+			error = timer_slack_check ?
+				timer_slack_check(me, arg2) : 0;
+			if (!error)
+				me->timer_slack_ns = arg2;
 			break;
 		case PR_MCE_KILL:
 			if (arg4 | arg5)
