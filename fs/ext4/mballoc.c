@@ -342,9 +342,14 @@ static struct kmem_cache *ext4_free_ext_cachep;
 /* We create slab caches for groupinfo data structures based on the
  * superblock block size.  There will be one per mounted filesystem for
  * each unique s_blocksize_bits */
-#define NR_GRPINFO_CACHES	\
-	(EXT4_MAX_BLOCK_LOG_SIZE - EXT4_MIN_BLOCK_LOG_SIZE + 1)
+#define NR_GRPINFO_CACHES 8
 static struct kmem_cache *ext4_groupinfo_caches[NR_GRPINFO_CACHES];
+
+static const char *ext4_groupinfo_slab_names[NR_GRPINFO_CACHES] = {
+	"ext4_groupinfo_1k", "ext4_groupinfo_2k", "ext4_groupinfo_4k",
+	"ext4_groupinfo_8k", "ext4_groupinfo_16k", "ext4_groupinfo_32k",
+	"ext4_groupinfo_64k", "ext4_groupinfo_128k"
+};
 
 static void ext4_mb_generate_from_pa(struct super_block *sb, void *bitmap,
 					ext4_group_t group);
@@ -2171,8 +2176,9 @@ static int ext4_mb_seq_groups_show(struct seq_file *seq, void *v)
 	struct super_block *sb = seq->private;
 	ext4_group_t group = (ext4_group_t) ((unsigned long) v);
 	int i;
-	int err;
+	int err, buddy_loaded = 0;
 	struct ext4_buddy e4b;
+	struct ext4_group_info *grinfo;
 	struct sg {
 		struct ext4_group_info info;
 		ext4_grpblk_t counters[16];
@@ -2189,15 +2195,21 @@ static int ext4_mb_seq_groups_show(struct seq_file *seq, void *v)
 
 	i = (sb->s_blocksize_bits + 2) * sizeof(sg.info.bb_counters[0]) +
 		sizeof(struct ext4_group_info);
-	err = ext4_mb_load_buddy(sb, group, &e4b);
-	if (err) {
-		seq_printf(seq, "#%-5u: I/O error\n", group);
-		return 0;
+	grinfo = ext4_get_group_info(sb, group);
+	/* Load the group info in memory only if not already loaded. */
+	if (unlikely(EXT4_MB_GRP_NEED_INIT(grinfo))) {
+		err = ext4_mb_load_buddy(sb, group, &e4b);
+		if (err) {
+			seq_printf(seq, "#%-5u: I/O error\n", group);
+			return 0;
+		}
+		buddy_loaded = 1;
 	}
-	ext4_lock_group(sb, group);
+
 	memcpy(&sg, ext4_get_group_info(sb, group), i);
-	ext4_unlock_group(sb, group);
-	ext4_mb_unload_buddy(&e4b);
+
+	if (buddy_loaded)
+		ext4_mb_unload_buddy(&e4b);
 
 	seq_printf(seq, "#%-5u: %-5u %-5u %-5u [", group, sg.info.bb_free,
 			sg.info.bb_fragments, sg.info.bb_first_free);
@@ -2414,6 +2426,55 @@ err_freesgi:
 	return -ENOMEM;
 }
 
+static void ext4_groupinfo_destroy_slabs(void)
+{
+	int i;
+
+	for (i = 0; i < NR_GRPINFO_CACHES; i++) {
+		if (ext4_groupinfo_caches[i])
+			kmem_cache_destroy(ext4_groupinfo_caches[i]);
+		ext4_groupinfo_caches[i] = NULL;
+	}
+}
+
+static int ext4_groupinfo_create_slab(size_t size)
+{
+	static DEFINE_MUTEX(ext4_grpinfo_slab_create_mutex);
+	int slab_size;
+	int blocksize_bits = order_base_2(size);
+	int cache_index = blocksize_bits - EXT4_MIN_BLOCK_LOG_SIZE;
+	struct kmem_cache *cachep;
+
+	if (cache_index >= NR_GRPINFO_CACHES)
+		return -EINVAL;
+
+	if (unlikely(cache_index < 0))
+		cache_index = 0;
+
+	mutex_lock(&ext4_grpinfo_slab_create_mutex);
+	if (ext4_groupinfo_caches[cache_index]) {
+		mutex_unlock(&ext4_grpinfo_slab_create_mutex);
+		return 0;	/* Already created */
+	}
+
+	slab_size = offsetof(struct ext4_group_info,
+				bb_counters[blocksize_bits + 2]);
+
+	cachep = kmem_cache_create(ext4_groupinfo_slab_names[cache_index],
+					slab_size, 0, SLAB_RECLAIM_ACCOUNT,
+					NULL);
+
+	mutex_unlock(&ext4_grpinfo_slab_create_mutex);
+	if (!cachep) {
+		printk(KERN_EMERG "EXT4: no memory for groupinfo slab cache\n");
+		return -ENOMEM;
+	}
+
+	ext4_groupinfo_caches[cache_index] = cachep;
+
+	return 0;
+}
+
 int ext4_mb_init(struct super_block *sb, int needs_recovery)
 {
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
@@ -2421,9 +2482,6 @@ int ext4_mb_init(struct super_block *sb, int needs_recovery)
 	unsigned offset;
 	unsigned max;
 	int ret;
-	int cache_index;
-	struct kmem_cache *cachep;
-	char *namep = NULL;
 
 	i = (sb->s_blocksize_bits + 2) * sizeof(*sbi->s_mb_offsets);
 
@@ -2440,30 +2498,9 @@ int ext4_mb_init(struct super_block *sb, int needs_recovery)
 		goto out;
 	}
 
-	cache_index = sb->s_blocksize_bits - EXT4_MIN_BLOCK_LOG_SIZE;
-	cachep = ext4_groupinfo_caches[cache_index];
-	if (!cachep) {
-		char name[32];
-		int len = offsetof(struct ext4_group_info,
-					bb_counters[sb->s_blocksize_bits + 2]);
-
-		sprintf(name, "ext4_groupinfo_%d", sb->s_blocksize_bits);
-		namep = kstrdup(name, GFP_KERNEL);
-		if (!namep) {
-			ret = -ENOMEM;
-			goto out;
-		}
-
-		/* Need to free the kmem_cache_name() when we
-		 * destroy the slab */
-		cachep = kmem_cache_create(namep, len, 0,
-					     SLAB_RECLAIM_ACCOUNT, NULL);
-		if (!cachep) {
-			ret = -ENOMEM;
-			goto out;
-		}
-		ext4_groupinfo_caches[cache_index] = cachep;
-	}
+	ret = ext4_groupinfo_create_slab(sb->s_blocksize);
+	if (ret < 0)
+		goto out;
 
 	/* order 0 is regular bitmap */
 	sbi->s_mb_maxs[0] = sb->s_blocksize << 3;
@@ -2520,7 +2557,6 @@ out:
 	if (ret) {
 		kfree(sbi->s_mb_offsets);
 		kfree(sbi->s_mb_maxs);
-		kfree(namep);
 	}
 	return ret;
 }
@@ -2608,18 +2644,12 @@ int ext4_mb_release(struct super_block *sb)
 static inline int ext4_issue_discard(struct super_block *sb,
 		ext4_group_t block_group, ext4_grpblk_t block, int count)
 {
-	int ret;
 	ext4_fsblk_t discard_block;
 
 	discard_block = block + ext4_group_first_block_no(sb, block_group);
 	trace_ext4_discard_blocks(sb,
 			(unsigned long long) discard_block, count);
-	ret = sb_issue_discard(sb, discard_block, count, GFP_NOFS, 0);
-	if (ret == -EOPNOTSUPP) {
-		ext4_warning(sb, "discard not supported, disabling");
-		clear_opt(EXT4_SB(sb)->s_mount_opt, DISCARD);
-	}
-	return ret;
+	return sb_issue_discard(sb, discard_block, count, GFP_NOFS, 0);
 }
 
 /*
@@ -2631,7 +2661,7 @@ static void release_blocks_on_commit(journal_t *journal, transaction_t *txn)
 	struct super_block *sb = journal->j_private;
 	struct ext4_buddy e4b;
 	struct ext4_group_info *db;
-	int err, count = 0, count2 = 0;
+	int err, ret, count = 0, count2 = 0;
 	struct ext4_free_data *entry;
 	struct list_head *l, *ltmp;
 
@@ -2641,9 +2671,15 @@ static void release_blocks_on_commit(journal_t *journal, transaction_t *txn)
 		mb_debug(1, "gonna free %u blocks in group %u (0x%p):",
 			 entry->count, entry->group, entry);
 
-		if (test_opt(sb, DISCARD))
-			ext4_issue_discard(sb, entry->group,
+		if (test_opt(sb, DISCARD)) {
+			ret = ext4_issue_discard(sb, entry->group,
 					entry->start_blk, entry->count);
+			if (unlikely(ret == -EOPNOTSUPP)) {
+				ext4_warning(sb, "discard not supported, "
+						 "disabling");
+				clear_opt(EXT4_SB(sb)->s_mount_opt, DISCARD);
+			}
+		}
 
 		err = ext4_mb_load_buddy(sb, entry->group, &e4b);
 		/* we expect to find existing buddy because it's pinned */
@@ -2734,7 +2770,6 @@ int __init ext4_init_mballoc(void)
 
 void ext4_exit_mballoc(void)
 {
-	int i;
 	/*
 	 * Wait for completion of call_rcu()'s on ext4_pspace_cachep
 	 * before destroying the slab cache.
@@ -2743,15 +2778,7 @@ void ext4_exit_mballoc(void)
 	kmem_cache_destroy(ext4_pspace_cachep);
 	kmem_cache_destroy(ext4_ac_cachep);
 	kmem_cache_destroy(ext4_free_ext_cachep);
-
-	for (i = 0; i < NR_GRPINFO_CACHES; i++) {
-		struct kmem_cache *cachep = ext4_groupinfo_caches[i];
-		if (cachep) {
-			char *name = (char *)kmem_cache_name(cachep);
-			kmem_cache_destroy(cachep);
-			kfree(name);
-		}
-	}
+	ext4_groupinfo_destroy_slabs();
 	ext4_remove_debugfs_entry();
 }
 
@@ -3188,7 +3215,7 @@ ext4_mb_check_group_pa(ext4_fsblk_t goal_block,
 	cur_distance = abs(goal_block - cpa->pa_pstart);
 	new_distance = abs(goal_block - pa->pa_pstart);
 
-	if (cur_distance < new_distance)
+	if (cur_distance <= new_distance)
 		return cpa;
 
 	/* drop the previous reference */
@@ -3881,19 +3908,6 @@ repeat:
 	}
 }
 
-/*
- * finds all preallocated spaces and return blocks being freed to them
- * if preallocated space becomes full (no block is used from the space)
- * then the function frees space in buddy
- * XXX: at the moment, truncate (which is the only way to free blocks)
- * discards all preallocations
- */
-static void ext4_mb_return_to_preallocation(struct inode *inode,
-					struct ext4_buddy *e4b,
-					sector_t block, int count)
-{
-	BUG_ON(!list_empty(&EXT4_I(inode)->i_prealloc_list));
-}
 #ifdef CONFIG_EXT4_DEBUG
 static void ext4_mb_show_ac(struct ext4_allocation_context *ac)
 {
@@ -4283,7 +4297,7 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t *handle,
 	 * EDQUOT check, as blocks and quotas have been already
 	 * reserved when data being copied into pagecache.
 	 */
-	if (EXT4_I(ar->inode)->i_delalloc_reserved_flag)
+	if (ext4_test_inode_state(ar->inode, EXT4_STATE_DELALLOC_RESERVED))
 		ar->flags |= EXT4_MB_DELALLOC_RESERVED;
 	else {
 		/* Without delayed allocation we need to verify
@@ -4380,7 +4394,8 @@ out:
 	if (inquota && ar->len < inquota)
 		dquot_free_block(ar->inode, inquota - ar->len);
 	if (!ar->len) {
-		if (!EXT4_I(ar->inode)->i_delalloc_reserved_flag)
+		if (!ext4_test_inode_state(ar->inode,
+					   EXT4_STATE_DELALLOC_RESERVED))
 			/* release all the reserved blocks if non delalloc */
 			percpu_counter_sub(&sbi->s_dirtyblocks_counter,
 						reserv_blks);
@@ -4643,7 +4658,6 @@ do_more:
 		ext4_lock_group(sb, block_group);
 		mb_clear_bits(bitmap_bh->b_data, bit, count);
 		mb_free_blocks(inode, &e4b, bit, count);
-		ext4_mb_return_to_preallocation(inode, &e4b, block, count);
 	}
 
 	ret = ext4_free_blks_count(sb, gdp) + count;
@@ -4718,8 +4732,6 @@ static int ext4_trim_extent(struct super_block *sb, int start, int count,
 	ext4_unlock_group(sb, group);
 
 	ret = ext4_issue_discard(sb, group, start, count);
-	if (ret)
-		ext4_std_error(sb, ret);
 
 	ext4_lock_group(sb, group);
 	mb_free_blocks(NULL, e4b, start, ex.fe_len);
@@ -4744,7 +4756,8 @@ static int ext4_trim_extent(struct super_block *sb, int start, int count,
  * bitmap. Then issue a TRIM command on this extent and free the extent in
  * the group buddy bitmap. This is done until whole group is scanned.
  */
-ext4_grpblk_t ext4_trim_all_free(struct super_block *sb, struct ext4_buddy *e4b,
+static ext4_grpblk_t
+ext4_trim_all_free(struct super_block *sb, struct ext4_buddy *e4b,
 		ext4_grpblk_t start, ext4_grpblk_t max, ext4_grpblk_t minblocks)
 {
 	void *bitmap;
@@ -4819,12 +4832,18 @@ int ext4_trim_fs(struct super_block *sb, struct fstrim_range *range)
 	ext4_group_t group, ngroups = ext4_get_groups_count(sb);
 	ext4_grpblk_t cnt = 0, first_block, last_block;
 	uint64_t start, len, minlen, trimmed;
+	ext4_fsblk_t blocks_count = ext4_blocks_count(EXT4_SB(sb)->s_es);
 	int ret = 0;
 
 	start = range->start >> sb->s_blocksize_bits;
 	len = range->len >> sb->s_blocksize_bits;
 	minlen = range->minlen >> sb->s_blocksize_bits;
 	trimmed = 0;
+
+	if (start >= blocks_count)
+		return -EINVAL;
+	if (start + len > blocks_count)
+		len = blocks_count - start;
 
 	if (unlikely(minlen > EXT4_BLOCKS_PER_GROUP(sb)))
 		return -EINVAL;
@@ -4851,7 +4870,7 @@ int ext4_trim_fs(struct super_block *sb, struct fstrim_range *range)
 		if (len >= EXT4_BLOCKS_PER_GROUP(sb))
 			len -= (EXT4_BLOCKS_PER_GROUP(sb) - first_block);
 		else
-			last_block = len;
+			last_block = first_block + len;
 
 		if (e4b.bd_info->bb_free >= minlen) {
 			cnt = ext4_trim_all_free(sb, &e4b, first_block,

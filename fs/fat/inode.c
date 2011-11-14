@@ -645,7 +645,7 @@ retry:
 	spin_unlock(&sbi->inode_hash_lock);
 	mark_buffer_dirty(bh);
 	err = 0;
-	if (wait)
+	if (1 /* XXX: fix fsync and use wait */)
 		err = sync_dirty_buffer(bh);
 	brelse(bh);
 	return err;
@@ -1543,20 +1543,15 @@ EXPORT_SYMBOL_GPL(fat_fill_super);
  */
 static int writeback_inode(struct inode *inode)
 {
-
-	int ret;
 	struct address_space *mapping = inode->i_mapping;
-	struct writeback_control wbc = {
-	       .sync_mode = WB_SYNC_NONE,
-	      .nr_to_write = 0,
-	};
-	/* if we used WB_SYNC_ALL, sync_inode waits for the io for the
-	* inode to finish.  So WB_SYNC_NONE is sent down to sync_inode
-	* and filemap_fdatawrite is used for the data blocks
-	*/
-	ret = sync_inode(inode, &wbc);
-	if (!ret)
-	       ret = filemap_fdatawrite(mapping);
+	int ret;
+
+	ret = sync_inode_metadata(inode, 0);
+	if (ret)
+		return ret;
+
+	ret = filemap_fdatawrite(mapping);
+
 	return ret;
 }
 

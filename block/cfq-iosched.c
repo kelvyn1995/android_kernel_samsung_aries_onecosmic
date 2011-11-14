@@ -605,8 +605,8 @@ cfq_group_slice(struct cfq_data *cfqd, struct cfq_group *cfqg)
 	return cfq_target_latency * cfqg->weight / st->total_weight;
 }
 
-static inline void
-cfq_set_prio_slice(struct cfq_data *cfqd, struct cfq_queue *cfqq)
+static inline unsigned
+cfq_scaled_group_slice(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 {
 	unsigned slice = cfq_prio_to_slice(cfqd, cfqq);
 	if (cfqd->cfq_latency) {
@@ -632,6 +632,14 @@ cfq_set_prio_slice(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 				    low_slice);
 		}
 	}
+	return slice;
+}
+
+static inline void
+cfq_set_prio_slice(struct cfq_data *cfqd, struct cfq_queue *cfqq)
+{
+	unsigned slice = cfq_scaled_group_slice(cfqd, cfqq);
+
 	cfqq->slice_start = jiffies;
 	cfqq->slice_end = jiffies + slice;
 	cfqq->allocated_slice = slice;
@@ -1672,8 +1680,11 @@ __cfq_slice_expired(struct cfq_data *cfqd, struct cfq_queue *cfqq,
 	/*
 	 * store what was left of this slice, if the queue idled/timed out
 	 */
-	if (timed_out && !cfq_cfqq_slice_new(cfqq)) {
-		cfqq->slice_resid = cfqq->slice_end - jiffies;
+	if (timed_out) {
+		if (cfq_cfqq_slice_new(cfqq))
+			cfqq->slice_resid = cfq_scaled_group_slice(cfqd, cfqq);
+		else
+			cfqq->slice_resid = cfqq->slice_end - jiffies;
 		cfq_log_cfqq(cfqd, cfqq, "resid=%ld", cfqq->slice_resid);
 	}
 
@@ -2116,12 +2127,7 @@ static void choose_service_tree(struct cfq_data *cfqd, struct cfq_group *cfqg)
 	unsigned count;
 	struct cfq_rb_root *st;
 	unsigned group_slice;
-
-	if (!cfqg) {
-		cfqd->serving_prio = IDLE_WORKLOAD;
-		cfqd->workload_expires = jiffies + 1;
-		return;
-	}
+	enum wl_prio_t original_prio = cfqd->serving_prio;
 
 	/* Choose next priority. RT > BE > IDLE */
 	if (cfq_group_busy_queues_wl(RT_WORKLOAD, cfqd, cfqg))
@@ -2133,6 +2139,9 @@ static void choose_service_tree(struct cfq_data *cfqd, struct cfq_group *cfqg)
 		cfqd->workload_expires = jiffies + 1;
 		return;
 	}
+
+	if (original_prio != cfqd->serving_prio)
+		goto new_workload;
 
 	/*
 	 * For RT and BE, we have to choose also the type
@@ -2148,6 +2157,7 @@ static void choose_service_tree(struct cfq_data *cfqd, struct cfq_group *cfqg)
 	if (count && !time_after(jiffies, cfqd->workload_expires))
 		return;
 
+new_workload:
 	/* otherwise select new workload type */
 	cfqd->serving_type =
 		cfq_choose_wl(cfqd, cfqg, cfqd->serving_prio);
@@ -3284,8 +3294,17 @@ cfq_should_preempt(struct cfq_data *cfqd, struct cfq_queue *new_cfqq,
  */
 static void cfq_preempt_queue(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 {
+	struct cfq_queue *old_cfqq = cfqd->active_queue;
+
 	cfq_log_cfqq(cfqd, cfqq, "preempt");
 	cfq_slice_expired(cfqd, 1);
+
+	/*
+	 * workload type is changed, don't save slice, otherwise preempt
+	 * doesn't happen
+	 */
+	if (cfqq_type(old_cfqq) != cfqq_type(cfqq))
+		cfqq->cfqg->saved_workload_slice = 0;
 
 	/*
 	 * Put the new queue at the front of the of the current list,

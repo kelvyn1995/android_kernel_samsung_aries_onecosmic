@@ -1009,6 +1009,7 @@ static void disk_release(struct device *dev)
 	disk_replace_part_tbl(disk, NULL);
 	free_part_stats(&disk->part0);
 	free_part_info(&disk->part0);
+	kref_put(&disk->next_flush->ref, free_flush_completion);
 	kfree(disk);
 }
 
@@ -1194,17 +1195,24 @@ EXPORT_SYMBOL(alloc_disk);
 struct gendisk *alloc_disk_node(int minors, int node_id)
 {
 	struct gendisk *disk;
+	struct flush_completion_t *t;
+
+	t = alloc_flush_completion(GFP_KERNEL);
+	if (!t)
+		return NULL;
 
 	disk = kmalloc_node(sizeof(struct gendisk),
 				GFP_KERNEL | __GFP_ZERO, node_id);
 	if (disk) {
 		if (!init_part_stats(&disk->part0)) {
+			kfree(t);
 			kfree(disk);
 			return NULL;
 		}
 		disk->node_id = node_id;
 		if (disk_expand_part_tbl(disk, 0)) {
 			free_part_stats(&disk->part0);
+			kfree(t);
 			kfree(disk);
 			return NULL;
 		}
@@ -1217,6 +1225,10 @@ struct gendisk *alloc_disk_node(int minors, int node_id)
 		device_initialize(disk_to_dev(disk));
 		INIT_WORK(&disk->async_notify,
 			media_change_notify_thread);
+
+		disk->in_flush = 0;
+		spin_lock_init(&disk->flush_flag_lock);
+		disk->next_flush = t;
 	}
 	return disk;
 }

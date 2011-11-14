@@ -880,6 +880,64 @@ struct dentry *generic_fh_to_parent(struct super_block *sb, struct fid *fid,
 EXPORT_SYMBOL_GPL(generic_fh_to_parent);
 
 /**
+ * generic_sync_inode - generic sync implementation for simple filesystems
+ * @inode:	inode to synchronize
+ * @flags:	INODE_SYNC_ flag
+ * @start:	start range (if INODE_SYNC_DATA is set)
+ * @end:	end range (if INODE_SYNC_DATA is set)
+ * @Returns:	0 on success, otherwise -errno.
+ *
+ * This is a generic implementation of the sync_inode method for simple
+ * filesystems which track all non-inode metadata in the buffers list
+ * hanging off the address_space structure. Their ->write_inode call must
+ * _always_ synchronously write back inode metadata (regardless if it was
+ * called for sync or async, because there is no other way to get it on
+ * disk).
+ *
+ * More advanced filesystems will want to always asynchronously dirty inode
+ * metadata in ->write_inode (regardless if it is sync or async), and then
+ * synchronously verify that it is on disk in their ->fsync, ->sync_inode,
+ * and ->sync_fs routines. generic_sync_inode could still be used in their
+ * sync_inode call, so long as they subsequently verify the metadata is on
+ * disk.
+ */
+int generic_sync_inode(struct inode *inode, unsigned int flags,
+			loff_t start, loff_t end)
+{
+	struct address_space *mapping = inode->i_mapping;
+	int err, ret = 0;
+
+	if (flags & INODE_SYNC_DATA) {
+		err = filemap_write_and_wait_range(mapping, start, end);
+		if (!ret)
+			ret = err;
+	}
+
+	if (flags & INODE_SYNC_DATA_METADATA) {
+		/*
+		 * We need to protect against concurrent writers, which could
+		 * cause livelocks in fsync_buffers_list().
+		 */
+		mutex_lock(&inode->i_mutex);
+		err = sync_mapping_buffers(mapping);
+		if (!ret)
+			ret = err;
+		mutex_unlock(&inode->i_mutex);
+	}
+
+	if (flags & (INODE_SYNC_DATA_METADATA | INODE_SYNC_METADATA)) {
+		int datasync = !(flags & INODE_SYNC_METADATA);
+
+		err = sync_inode_metadata(inode, datasync);
+		if (!ret)
+			ret = err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(generic_sync_inode);
+
+/**
  * generic_file_fsync - generic fsync implementation for simple filesystems
  * @file:	file to synchronize
  * @datasync:	only synchronize essential metadata if true
@@ -895,12 +953,7 @@ int generic_file_fsync(struct file *file, int datasync)
 	int ret;
 
 	ret = sync_mapping_buffers(inode->i_mapping);
-	if (!(inode->i_state & I_DIRTY))
-		return ret;
-	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
-		return ret;
-
-	err = sync_inode_metadata(inode, 1);
+	err = sync_inode_metadata(inode, datasync);
 	if (ret == 0)
 		ret = err;
 	return ret;

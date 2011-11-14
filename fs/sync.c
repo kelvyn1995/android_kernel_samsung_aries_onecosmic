@@ -142,7 +142,15 @@ void emergency_sync(void)
 int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	struct address_space *mapping = file->f_mapping;
+	struct inode *inode = mapping->host;
 	int err, ret;
+
+	if (inode->i_op->sync_inode) {
+		unsigned int flags = INODE_SYNC_DATA | INODE_SYNC_DATA_METADATA;
+		if (!datasync)
+			flags |= INODE_SYNC_METADATA;
+		return inode->i_op->sync_inode(inode, flags, start, end);
+	}
 
 	if (!file->f_op || !file->f_op->fsync) {
 		ret = -EINVAL;

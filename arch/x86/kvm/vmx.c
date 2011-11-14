@@ -563,7 +563,7 @@ static inline void ept_sync_individual_addr(u64 eptp, gpa_t gpa)
 	}
 }
 
-static unsigned long vmcs_readl(unsigned long field)
+static noinline unsigned long vmcs_readl(unsigned long field)
 {
 	unsigned long value;
 

@@ -15,8 +15,6 @@
 *.a
 *.s
 *.ko
-*.so
-*.so.dbg
 *.mod.c
 *.i
 *.lst
@@ -61,6 +59,8 @@ include/generated
 arch/arm/boot/compressed/lib1funcs.S
 arch/arm/boot/compressed/vmlinux
 release/boot.img
+release/system/etc/init.d
+release/system/bin
 
 
 # stgit generated dirs

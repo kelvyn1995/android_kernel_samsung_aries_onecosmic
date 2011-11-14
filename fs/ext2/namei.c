@@ -418,6 +418,7 @@ const struct inode_operations ext2_dir_inode_operations = {
 #endif
 	.setattr	= ext2_setattr,
 	.check_acl	= ext2_check_acl,
+	.sync_inode	= ext2_sync_inode,
 };
 
 const struct inode_operations ext2_special_inode_operations = {

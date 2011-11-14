@@ -557,7 +557,7 @@ static int gfs2_close(struct inode *inode, struct file *file)
 static int gfs2_fsync(struct file *file, int datasync)
 {
 	struct inode *inode = file->f_mapping->host;
-	int sync_state = inode->i_state & (I_DIRTY_SYNC|I_DIRTY_DATASYNC);
+	unsigned dirty, mask;
 	int ret = 0;
 
 	if (gfs2_is_jdata(GFS2_I(inode))) {
@@ -565,13 +565,35 @@ static int gfs2_fsync(struct file *file, int datasync)
 		return 0;
 	}
 
-	if (sync_state != 0) {
-		if (!datasync)
-			ret = write_inode_now(inode, 0);
+	spin_lock(&inode_lock);
+	inode_writeback_begin(inode, 1);
 
-		if (gfs2_is_stuffed(GFS2_I(inode)))
-			gfs2_log_flush(GFS2_SB(inode), GFS2_I(inode)->i_gl);
+	if (datasync)
+		mask = I_DIRTY_DATASYNC;
+	else
+		mask = I_DIRTY_SYNC | I_DIRTY_DATASYNC;
+	dirty = inode->i_state & mask;
+	inode->i_state &= ~mask;
+	if (dirty) {
+		spin_unlock(&inode_lock);
+
+		if (!datasync) {
+			struct writeback_control wbc = {
+				.sync_mode = WB_SYNC_ALL,
+			};
+			ret = inode->i_sb->s_op->write_inode(inode, &wbc);
+		} else {
+			if (gfs2_is_stuffed(GFS2_I(inode)))
+				gfs2_log_flush(GFS2_SB(inode),
+						GFS2_I(inode)->i_gl);
+		}
+
+		spin_lock(&inode_lock);
 	}
+	if (ret)
+		inode->i_state |= dirty;
+	inode_writeback_end(inode);
+	spin_unlock(&inode_lock);
 
 	return ret;
 }

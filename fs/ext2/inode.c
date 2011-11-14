@@ -1202,16 +1202,17 @@ static int ext2_setsize(struct inode *inode, loff_t newsize)
 
 	inode->i_mtime = inode->i_ctime = CURRENT_TIME_SEC;
 	if (inode_needs_sync(inode)) {
-		sync_mapping_buffers(inode->i_mapping);
-		sync_inode_metadata(inode, 1);
+		error = inode->i_op->sync_inode(inode,
+				INODE_SYNC_DATA_METADATA | INODE_SYNC_METADATA,
+				0, LLONG_MAX);
 	} else {
 		mark_inode_dirty(inode);
 	}
 
-	return 0;
+	return error;
 }
 
-static struct ext2_inode *ext2_get_inode(struct super_block *sb, ino_t ino,
+struct ext2_inode *ext2_get_inode(struct super_block *sb, ino_t ino,
 					struct buffer_head **p)
 {
 	struct buffer_head * bh;
@@ -1505,22 +1506,47 @@ static int __ext2_write_inode(struct inode *inode, int do_sync)
 	} else for (n = 0; n < EXT2_N_BLOCKS; n++)
 		raw_inode->i_block[n] = ei->i_data[n];
 	mark_buffer_dirty(bh);
-	if (do_sync) {
-		sync_dirty_buffer(bh);
-		if (buffer_req(bh) && !buffer_uptodate(bh)) {
-			printk ("IO error syncing ext2 inode [%s:%08lx]\n",
-				sb->s_id, (unsigned long) ino);
-			err = -EIO;
-		}
-	}
-	ei->i_state &= ~EXT2_STATE_NEW;
 	brelse (bh);
+	ei->i_state &= ~EXT2_STATE_NEW;
 	return err;
 }
 
 int ext2_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	return __ext2_write_inode(inode, wbc->sync_mode == WB_SYNC_ALL);
+}
+
+int ext2_sync_inode(struct inode *inode, unsigned int flags,
+			loff_t start, loff_t end)
+{
+	int ret;
+	ino_t ino = inode->i_ino;
+	struct super_block *sb = inode->i_sb;
+	struct address_space *sb_mapping = sb->s_bdev->bd_inode->i_mapping;
+	struct buffer_head *bh;
+	struct ext2_inode *raw_inode;
+
+	ret = generic_sync_inode(inode, flags, start, end);
+	if (ret == -EIO || test_and_clear_bit(AS_EIO, &sb_mapping->flags)) {
+		/* We don't really know where the IO error happened... */
+		ext2_error(sb, __func__,
+			   "detected IO error when syncing inode");
+		return -EIO;
+	}
+
+	raw_inode = ext2_get_inode(sb, ino, &bh);
+	if (IS_ERR(raw_inode))
+ 		return -EIO;
+
+	sync_dirty_buffer(bh);
+	if (buffer_req(bh) && !buffer_uptodate(bh)) {
+		printk ("IO error syncing ext2 inode [%s:%08lx]\n",
+			sb->s_id, (unsigned long) ino);
+		ret = -EIO;
+	}
+	brelse (bh);
+
+	return ret;
 }
 
 int ext2_setattr(struct dentry *dentry, struct iattr *iattr)

@@ -16,6 +16,16 @@
 
 #ifdef CONFIG_BLOCK
 
+struct flush_completion_t {
+	struct completion ready;
+	struct completion finish;
+	int ret;
+	atomic_t waiters;
+	struct kref ref;
+};
+extern struct flush_completion_t *alloc_flush_completion(gfp_t gfp_mask);
+extern void free_flush_completion(struct kref *ref);
+
 #define kobj_to_dev(k)		container_of((k), struct device, kobj)
 #define dev_to_disk(device)	container_of((device), struct gendisk, part0.__dev)
 #define dev_to_part(device)	container_of((device), struct hd_struct, __dev)
@@ -182,6 +192,11 @@ struct gendisk {
 	struct blk_integrity *integrity;
 #endif
 	int node_id;
+
+	/* flush coordination */
+	spinlock_t flush_flag_lock;
+	int in_flush;
+	struct flush_completion_t *next_flush;
 };
 
 static inline struct gendisk *part_to_disk(struct hd_struct *part)

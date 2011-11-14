@@ -636,7 +636,7 @@ struct address_space {
 	unsigned int		i_mmap_writable;/* count VM_SHARED mappings */
 	struct prio_tree_root	i_mmap;		/* tree of private and shared mappings */
 	struct list_head	i_mmap_nonlinear;/*list VM_NONLINEAR mappings */
-	spinlock_t		i_mmap_lock;	/* protect tree, count, list */
+	struct mutex		i_mmap_lock;	/* protect tree, count, list */
 	unsigned int		truncate_count;	/* Cover race condition with truncate */
 	unsigned long		nrpages;	/* number of total pages */
 	pgoff_t			writeback_index;/* writeback starts here */
@@ -655,9 +655,9 @@ struct address_space {
 
 struct block_device {
 	dev_t			bd_dev;  /* not a kdev_t - it's a search key */
+	int			bd_openers;
 	struct inode *		bd_inode;	/* will die */
 	struct super_block *	bd_super;
-	int			bd_openers;
 	struct mutex		bd_mutex;	/* open/close mutex */
 	struct list_head	bd_inodes;
 	void *			bd_claiming;
@@ -1545,6 +1545,16 @@ struct file_operations {
 	int (*setlease)(struct file *, long, struct file_lock **);
 };
 
+#define INODE_SYNC_DATA			0x01
+#define INODE_SYNC_DATA_METADATA	0x02
+#define INODE_SYNC_METADATA		0x04
+
+#define INODE_SYNC_FSYNC		(INODE_SYNC_DATA |		\
+					 INODE_SYNC_DATA_METADATA |	\
+					 INODE_SYNC_METADATA )
+#define INODE_SYNC_FDATASYNC		(INODE_SYNC_DATA |		\
+					 INODE_SYNC_DATA_METADATA)
+
 struct inode_operations {
 	int (*create) (struct inode *,struct dentry *,int, struct nameidata *);
 	struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
@@ -1573,6 +1583,7 @@ struct inode_operations {
 			  loff_t len);
 	int (*fiemap)(struct inode *, struct fiemap_extent_info *, u64 start,
 		      u64 len);
+	int (*sync_inode)(struct inode *, unsigned int, loff_t, loff_t);
 };
 
 struct seq_file;
@@ -1764,8 +1775,11 @@ static inline void file_accessed(struct file *file)
 		touch_atime(file->f_path.mnt, file->f_path.dentry);
 }
 
-int sync_inode(struct inode *inode, struct writeback_control *wbc);
-int sync_inode_metadata(struct inode *inode, int wait);
+int sync_inode_metadata(struct inode *inode, int datasync);
+int inode_writeback_begin(struct inode *inode, int wait);
+int inode_writeback_end(struct inode *inode);
+int generic_sync_inode(struct inode *inode, unsigned int flags,
+			loff_t start, loff_t end);
 
 struct file_system_type {
 	const char *name;
