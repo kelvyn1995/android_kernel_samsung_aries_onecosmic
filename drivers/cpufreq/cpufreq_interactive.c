@@ -167,7 +167,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	if (cpufreq_frequency_table_target(pcpu->policy, pcpu->freq_table,
 					   new_freq, CPUFREQ_RELATION_H,
 					   &index)) {
-		pr_warn_once("timer %d: cpufreq_frequency_table_target error\n",
+		printk_once(KERN_WARNING "timer %d: cpufreq_frequency_table_target error\n",
 			     (int) data);
 		goto rearm;
 	}
@@ -628,7 +628,7 @@ static int __init cpufreq_interactive_init(void)
 
 	/* No rescuer thread, bind to CPU queuing the work for possibly
 	   warm cache (probably doesn't matter much). */
-	down_wq = alloc_workqueue("knteractive_down", 0, 1);
+	down_wq = create_workqueue("knteractive_down");
 
 	if (!down_wq)
 		goto err_freeuptask;
