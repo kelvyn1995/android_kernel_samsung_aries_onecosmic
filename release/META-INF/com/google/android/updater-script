@@ -68,6 +68,7 @@ show_progress(0.200000, 10);
 ui_print("		                                             ");
 ui_print("Setting up the kernel ... 				     ");
 
+assert(run_program("/tmp/erase_image", "boot"));
 assert(package_extract_file("boot.img", "/tmp/boot.img"),
 	write_raw_image("/tmp/boot.img", "boot"),
 	run_program("/tmp/bml_over_mtd.sh", "boot", "72", "reservoir", "2004", "/tmp/boot.img"),
