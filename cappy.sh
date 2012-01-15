@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 echo "copying config for CAPPY"
 cp arch/arm/configs/aries_captivatemtd_defconfig .config

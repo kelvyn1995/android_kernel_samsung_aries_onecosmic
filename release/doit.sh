@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 [[ -d release ]] || {
 	echo "must be in kernel root dir"
@@ -14,7 +14,7 @@ RELVER=$2
 [[ "$RELVER" == '' ]] && RELVER="0"
 
 #REL=CM7_${TYPE}_$(date +%Y%m%d-%H)_platypus.zip
-REL=CM9_${TYPE}_$(date +%Y%m%d)_NEO_3.0.8_VC-led-notif.zip
+REL=ICS_${TYPE}_$(date +%Y%m%d)_NEO_3.0.8_VC-led-notif.zip
 
 rm -r release/system 2> /dev/null
 mkdir  -p release/system/bin || exit 1
@@ -47,4 +47,4 @@ rm system/lib/modules/*
 rm system/lib/hw/*
 rm system/etc/init.d/*
 rm system/bin/*
-exit 0
+#exit 0
