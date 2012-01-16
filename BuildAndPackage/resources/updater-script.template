@@ -15,8 +15,9 @@ ui_print("        reference, it IS NOT foolproof.         ");
 #Give graphic and cleanup
 ui_print("<|============================================|>");
 ui_print(" |                 Kernel by:                 | ");
-ui_print(" |                 Team ICSSGS                | ");
 ui_print(" |                Renaud Allard               | ");
+ui_print(" |                 Team ICSSGS                | ");
+ui_print(" |             Zacharias Maladroit            | ");
 ui_print(" |                                            | ");
 ui_print(" |  #########    #####      #         #      #| ");
 ui_print(" |     #        #         # #       ##     ## | ");
