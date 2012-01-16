@@ -18,11 +18,11 @@ ui_print(" |                 Kernel by:                 | ");
 ui_print(" |                 Team ICSSGS                | ");
 ui_print(" |                Renaud Allard               | ");
 ui_print(" |                                            | ");
-ui_print(" |        #####  #     #   #####   #     #    | ");
-ui_print(" |       #      #  #  #  #        #  #  #     | ");
-ui_print(" |      #####  #     #  #  ####  #     #      | ");
-ui_print(" |     #       #    #   #     #  #    #       | ");
-ui_print(" |    #         ###     #####     ###         | ");
+ui_print(" |  #########    #####      #         #      #| ");
+ui_print(" |     #        #         # #       ##     ## | ");
+ui_print(" |    #        #####    #####     #  #   #  # | ");
+ui_print(" |   #        #       #     #   #    # #    # | ");
+ui_print(" |  #        #####  #       # #      #       #| ");
 ui_print(" |                                            | ");
 ui_print(" |  #####   ####   ####   ####   ####   ####  | ");
 ui_print(" |    #    #      #      #      #      #      | ");
@@ -62,7 +62,7 @@ set_perm(0, 0, 0777, "/tmp/bml_over_mtd");
 set_perm(0, 0, 0777, "/tmp/bml_over_mtd.sh");
 
 #Flash everything
-ui_print("             Flashing Fugu ICSSGS...            ");
+ui_print("           Flashing Platypus ICSSGS...          ");
 assert(
        package_extract_file("boot.img", "/tmp/boot.img"),
        write_raw_image("/tmp/boot.img", "boot"),
