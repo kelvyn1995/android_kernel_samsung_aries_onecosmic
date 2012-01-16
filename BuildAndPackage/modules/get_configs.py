@@ -82,12 +82,8 @@ This class includes:
                 get_var = lambda keyword: userConf[userConf.find(keyword) + len(keyword): userConf.find(keyword) + userConf[userConf.find(keyword):].find('\n')]
 
                 #Set variables
-                #Perhaps this can be made more high level later; for now we stick with what works
-                self.cFlags = get_var('cflags = ').split('; ')
                 self.clean = get_var('clean = ')
-                self.cppFlags = get_var('cppflags = ').split('; ')
                 self.initRAMDisk = get_var('initial-ramdisk = ')
-                self.ldFlags = get_var('ldflags = ').split('; ')
                 self.modules = get_var('modules = ').split('; ')
                 self.recoRAMDisk = get_var('recovery-ramdisk = ')
                 self.toolchain = get_var('toolchain = ')

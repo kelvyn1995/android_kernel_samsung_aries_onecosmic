@@ -44,7 +44,6 @@ def main():
     devices = config.device_settings()
 
     #Start working!
-    #worker(config, 'SGH-i897_Captivate', 'aries_captivatemtd_defconfig', 4)
     for device in devices[::2]:
         worker(config, device, devices[1::2][count])
 
