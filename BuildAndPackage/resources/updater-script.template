@@ -1,0 +1,72 @@
+#@updater-script
+#(T.S/T.B) | Trae32566 | Trae Santiago
+
+#Set version number, build time, etc
+ui_print("                                                ");
+ui_print("=-=-=-=-=-=-=-=-COMPILATION INFO-=-=-=-=-=-=-=-=");
+ui_print("DEVICE: {0}");
+ui_print("PACKAGER: {1}"); 
+ui_print("PACKAGE TIME: {2}");
+ui_print("VERSION: {3}");
+ui_print("                                                ");
+ui_print("    Note: this information is only given for    ");
+ui_print("        reference, it IS NOT foolproof.         ");
+
+#Give graphic and cleanup
+ui_print("<|============================================|>");
+ui_print(" |                 Kernel by:                 | ");
+ui_print(" |                 Team ICSSGS                | ");
+ui_print(" |                Renaud Allard               | ");
+ui_print(" |                                            | ");
+ui_print(" |        #####  #     #   #####   #     #    | ");
+ui_print(" |       #      #  #  #  #        #  #  #     | ");
+ui_print(" |      #####  #     #  #  ####  #     #      | ");
+ui_print(" |     #       #    #   #     #  #    #       | ");
+ui_print(" |    #         ###     #####     ###         | ");
+ui_print(" |                                            | ");
+ui_print(" |  #####   ####   ####   ####   ####   ####  | ");
+ui_print(" |    #    #      #      #      #      #      | ");
+ui_print(" |    #    #       ###    ###   #  ##   ###   | ");
+ui_print(" |    #    #          #      #  #   #      #  | ");
+ui_print(" |  #####   ####  ####   ####    ###   ####   | ");
+ui_print(" |                                            | ");
+ui_print(" |____________________________________________| ");
+ui_print(" |!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!| ");
+ui_print("                                                ");
+ui_print("   Cleaning scripts, OC settings, & modules...  ");
+mount("yaffs2", "MTD", "system", "/system");
+delete_recursive("/system/etc/init.d");
+delete_recursive("/system/lib/modules");
+
+#Extract modules, etc and unmount
+ui_print("   Extracting modules & unmounting system...    ");
+package_extract_dir("system/", "/system/");
+unmount("/system");
+
+#Mount /data and wipe dalvik cache
+ui_print("       Cleaning Dalvik cache & logger...        ");
+mount("yaffs2", "MTD", "userdata", "/data");
+delete_recursive("/data/dalvik-cache");
+delete("/data/local/logger.ko");
+unmount("/data");
+
+#Format cache
+ui_print("          Formatting Cache Partition...         ");
+format("yaffs2", "MTD", "cache");
+
+#Extract bml over mtd stuff
+ui_print("            Extracting bml_over_mtd...          ");
+package_extract_file("bml_over_mtd", "/tmp/bml_over_mtd");
+package_extract_file("bml_over_mtd.sh", "/tmp/bml_over_mtd.sh");
+set_perm(0, 0, 0777, "/tmp/bml_over_mtd");
+set_perm(0, 0, 0777, "/tmp/bml_over_mtd.sh");
+
+#Flash everything
+ui_print("             Flashing Fugu ICSSGS...            ");
+assert(
+       package_extract_file("boot.img", "/tmp/boot.img"),
+       write_raw_image("/tmp/boot.img", "boot"),
+       run_program("/tmp/bml_over_mtd.sh", "boot", "72", "reservoir", "2004", "/tmp/boot.img"),
+       delete("/tmp/boot.img")
+);
+ui_print("   Flash finished! Please reboot your device.  ");
